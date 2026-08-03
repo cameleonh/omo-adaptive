@@ -25,10 +25,9 @@ export type CodexMultiAgentVersion = "v1" | "v2" | null
 /**
  * Configure Codex 0.120 multi-agent settings and a bounded subagent cap.
  *
- * Whether V2 is active is determined at runtime by the model's server-side
- * catalog entry (`ModelInfo.multi_agent_version`).  Forcing `enabled = true`
- * in config breaks models whose API does not support encrypted tool
- * Codex 0.120 accepts either the `[features]` boolean `multi_agent_v2` or a
+ * Whether V2 is active is determined from the model's server-side catalog
+ * entry (`ModelInfo.multi_agent_version`). Codex 0.120 accepts either the
+ * `[features]` boolean `multi_agent_v2` or a
  * `[features.multi_agent_v2]` table containing only `enabled`,
  * `usage_hint_enabled`, `usage_hint_text`, and `hide_spawn_agent_metadata`.
  * The former `max_concurrent_threads_per_session` setting and every other V2

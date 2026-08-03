@@ -7,7 +7,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { updateCodexConfig } from "./codex-config-toml"
 
-const ALWAYS_ON_FEATURES = ["plugins", "plugin_hooks", "multi_agent"] as const
+const ALWAYS_ON_FEATURES = ["plugins", "codex_hooks", "multi_agent"] as const
 const AUTONOMOUS_PERMISSION_FEATURES = ["unified_exec", "goals"] as const
 
 describe("codex-config autonomous features", () => {
