@@ -59,7 +59,7 @@ describe("codex-config-toml", () => {
     expect(content).not.toContain('sandbox = "elevated"')
   })
 
-  test("#given empty Codex config #when updating config #then creates MultiAgentV2 section without root multi-agent mode", async () => {
+  test("#given empty Codex config #when updating config #then creates supported MultiAgentV2 settings without root multi-agent mode", async () => {
     // given
     const root = await mkdtemp(join(tmpdir(), "omo-codex-config-multi-agent-"))
     const configPath = join(root, "config.toml")
@@ -76,15 +76,10 @@ describe("codex-config-toml", () => {
     // then
     const content = await readFile(configPath, "utf8")
     expect(content).not.toMatch(/^\s*multi_agent_mode\s*=/m)
-    expect(content).toContain("[features.multi_agent_v2]")
-    const v2Section = content.slice(content.indexOf("[features.multi_agent_v2]"))
-      .split(/^\[/m).slice(0, 1).join("")
-    expect(v2Section).not.toContain("enabled")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
-    // The stamped gpt-5.6 default is a V2-preferred model: Codex rejects
-    // agents.max_threads while MultiAgentV2 is active, so a fresh install
-    // must not introduce it.
-    expect(content).not.toMatch(/^\s*max_threads\s*=/m)
+    expect(content).toContain("multi_agent_v2 = true")
+    expect(content).toContain("[agents]\nmax_threads = 6")
+    expect(content).not.toContain("[features.multi_agent_v2]")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
   test("#given stale queue multi-agent mode #when updating config #then removes unsupported root key", async () => {
@@ -171,7 +166,7 @@ describe("codex-config-toml", () => {
     expect(content).toContain("[features]")
   })
 
-  test("#given existing MultiAgentV2 table #when updating config #then preserves user enabled flag and unrelated tuning while setting thread limit", async () => {
+  test("#given existing MultiAgentV2 table #when updating config #then removes unsupported tuning while preserving valid semantics", async () => {
     // given
     // A pinned v1 model keeps this exercising the preserve-user-disable path;
     // an absent model would be stamped with the v2-preferred default, which
@@ -205,8 +200,8 @@ describe("codex-config-toml", () => {
     expect(content).toContain("[features.multi_agent_v2]")
     expect(content).toContain("enabled = false")
     expect(content).toContain("usage_hint_enabled = false")
-    expect(content).toContain("max_concurrent_threads_per_session = 4")
-    expect(content).not.toContain("max_concurrent_threads_per_session = 1000")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
+    expect(content).toContain("[agents]\nmax_threads = 4")
   })
 
   test("#given empty Codex config #when updating config #then leaves Context7 to the plugin MCP manifest", async () => {
@@ -350,7 +345,7 @@ describe("codex-config-toml", () => {
     expect(content).not.toContain("YOUR_API_KEY")
   })
 
-  test("#given legacy boolean MultiAgentV2 flag and table #when updating config #then normalizes to table config", async () => {
+  test("#given legacy boolean MultiAgentV2 flag and supported table #when updating config #then retains the supported table", async () => {
     // given
     const root = await mkdtemp(join(tmpdir(), "omo-codex-config-multi-agent-legacy-"))
     const configPath = join(root, "config.toml")
@@ -380,14 +375,12 @@ describe("codex-config-toml", () => {
     const content = await readFile(configPath, "utf8")
     expect(content).not.toMatch(/^multi_agent_v2\s*=/m)
     expect(content).toContain("[features.multi_agent_v2]")
-    const v2LegacySection = content.slice(content.indexOf("[features.multi_agent_v2]"))
-      .split(/^\[/m).slice(0, 1).join("")
-    expect(v2LegacySection).not.toContain("enabled")
+    expect(content).toContain("enabled = true")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
     expect(content).toContain("usage_hint_enabled = false")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
   })
 
-  test("#given legacy boolean MultiAgentV2 flag false #when updating config #then normalizes to a disabled table config", async () => {
+  test("#given legacy boolean MultiAgentV2 flag false #when updating config #then retains the supported false flag", async () => {
     // given
     // A pinned v1 model keeps the legacy boolean materializing as a disabled
     // table; the stamped v2-preferred default would drop the disable instead.
@@ -416,15 +409,13 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).not.toMatch(/^multi_agent_v2\s*=/m)
-    expect(content).toContain("[features.multi_agent_v2]")
-    expect(content).toMatch(/\[features\.multi_agent_v2\]\nenabled = false\nmax_concurrent_threads_per_session = 6/)
+    expect(content).toContain("multi_agent_v2 = false")
+    expect(content).not.toContain("[features.multi_agent_v2]")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
-  test("#given legacy agents max_threads #when updating config #then raises the root subagent thread cap", async () => {
+  test("#given legacy agents max_threads #when updating config #then preserves the root subagent thread cap", async () => {
     // given
-    // A pinned v1 model keeps the legacy low-cap raise path exercised; the
-    // stamped v2-preferred default would remove agents.max_threads instead.
     const root = await mkdtemp(join(tmpdir(), "omo-codex-config-multi-agent-legacy-threads-"))
     const configPath = join(root, "config.toml")
     await writeFile(
@@ -451,19 +442,14 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).toContain("[features.multi_agent_v2]")
-    const v2ThreadsSection = content.slice(content.indexOf("[features.multi_agent_v2]"))
-      .split(/^\[/m).slice(0, 1).join("")
-    expect(v2ThreadsSection).not.toContain("enabled")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).toContain("multi_agent_v2 = false")
     expect(content).toContain("[agents]")
-    expect(content).toContain("max_threads = 6")
-    expect(content).not.toContain("max_threads = 16")
+    expect(content).toContain("max_threads = 16")
     expect(content).toContain("max_depth = 4")
     expect(content).toContain("job_max_runtime_seconds = 3600")
   })
 
-  test("#given gpt-5.6 v2 model in models_cache #when updating config #then skips agents.max_threads and legacy disable", async () => {
+  test("#given gpt-5.6 v2 model in models_cache #when updating config #then enables V2 and preserves agents cap", async () => {
     // given
     const root = await mkdtemp(join(tmpdir(), "omo-codex-config-multi-agent-v2-preferred-"))
     const configPath = join(root, "config.toml")
@@ -497,11 +483,10 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).not.toMatch(/^\s*max_threads\s*=/m)
-    expect(content).not.toMatch(/^\s*multi_agent_v2\s*=/m)
-    expect(content).not.toMatch(/^\s*enabled\s*=\s*false/m)
+    expect(content).toContain("multi_agent_v2 = true")
+    expect(content).toContain("max_threads = 16")
     expect(content).toContain("max_depth = 4")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
   test("#given gpt-5.6 family model without models_cache #when updating config #then treats it as V2-preferred", async () => {
@@ -521,8 +506,9 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).not.toMatch(/^\s*max_threads\s*=/m)
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).toContain("multi_agent_v2 = true")
+    expect(content).toContain("max_threads = 6")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
   test("#given gpt-5.6-luna resolving v1 in models_cache #when updating config #then keeps the v1 thread cap", async () => {
@@ -546,11 +532,12 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
+    expect(content).toContain("multi_agent_v2 = false")
     expect(content).toContain("max_threads = 6")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
-  test("#given user-modified config without root model #when updating config #then does not introduce agents.max_threads", async () => {
+  test("#given user-modified config without root model #when updating config #then uses conservative supported settings", async () => {
     // given: Codex Desktop selects the model in the UI; a user-modified config
     // (reasoning profile not applied) keeps no root model, so the installer
     // cannot prove the session is not a GPT-5.6 V2 model that rejects
@@ -570,14 +557,13 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).not.toMatch(/^\s*max_threads\s*=/m)
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).toContain("multi_agent_v2 = false")
+    expect(content).toContain("max_threads = 6")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })
 
-  test("#given managed agent role sections #when updating config #then preserves role config while raising only root agents max_threads", async () => {
+  test("#given managed agent role sections #when updating config #then preserves role config and root agents max_threads", async () => {
     // given
-    // A pinned v1 model keeps the legacy low-cap raise path exercised; the
-    // stamped v2-preferred default would remove agents.max_threads instead.
     const root = await mkdtemp(join(tmpdir(), "omo-codex-config-multi-agent-role-section-"))
     const configPath = join(root, "config.toml")
     await writeFile(
@@ -607,8 +593,7 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).toContain("max_threads = 6")
-    expect(content).not.toContain("max_threads = 16")
+    expect(content).toContain("max_threads = 16")
     expect(content).toContain("[agents.explorer]")
     expect(content).toContain('description = "read-only explorer"')
     expect(content).toContain('config_file = "./agents/explorer.toml"')
@@ -687,7 +672,8 @@ describe("codex-config-toml", () => {
     const content = await readFile(configPath, "utf8")
     expect(content).toContain("[features]")
     expect(content).toContain("plugins = true")
-    expect(content).toContain("plugin_hooks = true")
+    expect(content).toContain("codex_hooks = true")
+    expect(content).not.toContain("plugin_hooks = true")
     expect(content).toContain("[marketplaces.sisyphuslabs]")
     expect(content).toContain('source_type = "local"')
     expect(content).toContain('source = "/repo/packages/omo-codex/cache/sisyphuslabs"')
@@ -872,6 +858,7 @@ describe("codex-config-toml", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
+    expect(content).toContain("multi_agent_v2 = false")
     expect(content).toContain("max_threads = 6")
-    expect(content).toContain("max_concurrent_threads_per_session = 6")
+    expect(content).not.toContain("max_concurrent_threads_per_session")
   })

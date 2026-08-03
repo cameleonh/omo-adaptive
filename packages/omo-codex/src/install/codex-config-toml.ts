@@ -57,7 +57,7 @@ export async function updateCodexConfig(input: {
     new Set((input.agentConfigs ?? []).map((agentConfig) => agentConfig.name)),
   )
   config = ensureFeatureEnabled(config, "plugins")
-  config = ensureFeatureEnabled(config, "plugin_hooks")
+  config = ensureFeatureEnabled(config, "codex_hooks")
   config = ensureFeatureEnabled(config, "multi_agent")
   config = removeUnsupportedCodexMultiAgentModeConfig(config)
   config = ensureCodexReasoningConfig(

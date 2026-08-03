@@ -3,78 +3,51 @@ import { dirname, isAbsolute, join } from "node:path"
 
 import {
   appendBlock,
-  escapeRegExp,
   findTomlSection,
-  removeSetting,
+  parseTomlDottedKey,
+  replaceOrInsertRootDottedSetting,
   replaceOrInsertSetting,
+  scanTomlMultilineLine,
 } from "./toml-section-editor"
-import { hasTomlSetting } from "./toml-setting-reader"
+import { hasTomlRootDottedKeyPrefix, hasTomlSetting } from "./toml-setting-reader"
 
 const CODEX_AGENTS_HEADER = "agents"
-const CODEX_MULTI_AGENT_V2_HEADER = "features.multi_agent_v2"
-const CODEX_MULTI_AGENT_V2_THREAD_LIMIT_KEY = `${CODEX_MULTI_AGENT_V2_HEADER}.max_concurrent_threads_per_session`
 const CODEX_SUBAGENT_THREAD_LIMIT = 6
-const CODEX_MULTI_AGENT_V2_THREAD_LIMIT = 6
+const SUPPORTED_MULTI_AGENT_V2_SETTINGS = new Set([
+  "enabled",
+  "usage_hint_enabled",
+  "usage_hint_text",
+  "hide_spawn_agent_metadata",
+])
 
 export type CodexMultiAgentVersion = "v1" | "v2" | null
 
 /**
- * Configure Codex subagent thread limits without forcing multi_agent_v2 on.
+ * Configure Codex 0.120 multi-agent settings and a bounded subagent cap.
  *
  * Whether V2 is active is determined at runtime by the model's server-side
  * catalog entry (`ModelInfo.multi_agent_version`).  Forcing `enabled = true`
  * in config breaks models whose API does not support encrypted tool
- * parameters (e.g. gpt-5.5-medium, API-key-only models, third-party
- * providers).  The installer therefore sets only the v1 and v2 tuning knobs
- * so sessions keep a bounded subagent cap regardless of the active runtime.
- *
- * When the selected model prefers V2 (catalog `multi_agent_version: "v2"`,
- * or a GPT-5.6 family model with the catalog unavailable), the installer
- * additionally skips/removes `agents.max_threads` (Codex rejects it while
- * MultiAgentV2 is enabled) and does not materialize `enabled = false` from
- * the legacy `[features]` boolean shorthand (a config-level disable
- * mismatches the reserved `collaboration.spawn_agent` schema on some Codex
- * versions - oh-my-openagent#6002 / #6008).
- *
- * When config.toml names no root model at all (Codex Desktop selects the
- * model in the UI), the installer never introduces `agents.max_threads`:
- * Codex rejects that key at thread/start while MultiAgentV2 is active. An
- * existing cap is still normalized in place so the managed-cap repair keeps
- * working and a hand-removed key stays removed.
+ * Codex 0.120 accepts either the `[features]` boolean `multi_agent_v2` or a
+ * `[features.multi_agent_v2]` table containing only `enabled`,
+ * `usage_hint_enabled`, `usage_hint_text`, and `hide_spawn_agent_metadata`.
+ * The former `max_concurrent_threads_per_session` setting and every other V2
+ * table key are unsupported. V2-preferred models enable V2, while non-V2 and
+ * unknown models keep the conservative explicit disable. Every supported path
+ * keeps the cap in `[agents].max_threads`, preserving an explicit user value.
  */
 export function ensureCodexMultiAgentV2Config(
   config: string,
   options: { readonly multiAgentVersion?: CodexMultiAgentVersion } = {},
 ): string {
-  const featureFlag = removeFeatureFlagSetting(config, "multi_agent_v2")
   const v2Preferred = options.multiAgentVersion === "v2"
-  const modelKnown = options.multiAgentVersion != null || readRootModel(featureFlag.config) !== null
-  const agentsConfig = v2Preferred
-    ? removeAgentsMaxThreads(featureFlag.config)
-    : modelKnown
-      ? ensureAgentsMaxThreads(featureFlag.config)
-      : raiseExistingAgentsMaxThreads(featureFlag.config)
-  const preserveDisable = featureFlag.value === false && !v2Preferred
-  const featureConfig = preserveDisable
-    ? setMultiAgentV2Disable(agentsConfig)
-    : v2Preferred
-      ? removeMultiAgentV2Disable(agentsConfig)
-      : agentsConfig
-  if (hasTomlSetting(featureConfig, CODEX_MULTI_AGENT_V2_THREAD_LIMIT_KEY)) return featureConfig
-  const section = findTomlSection(featureConfig, CODEX_MULTI_AGENT_V2_HEADER)
-  if (!section) {
-    const enabledSetting = preserveDisable ? "enabled = false\n" : ""
-    return appendBlock(
-      featureConfig,
-      `[${CODEX_MULTI_AGENT_V2_HEADER}]\n${enabledSetting}max_concurrent_threads_per_session = ${CODEX_MULTI_AGENT_V2_THREAD_LIMIT}\n`,
-    )
-  }
-  return replaceOrInsertSetting(
-    featureConfig,
-    section,
-    "max_concurrent_threads_per_session",
-    CODEX_MULTI_AGENT_V2_THREAD_LIMIT.toString(),
-  )
+  const threadLimit = readUnsupportedMultiAgentV2ThreadLimit(config)
+  const withoutUnsupportedSettings = removeUnsupportedMultiAgentV2Settings(config)
+  const hasSupportedV2Table = hasSupportedMultiAgentV2TableSetting(withoutUnsupportedSettings)
+  const featureConfig = hasSupportedV2Table
+    ? ensureMultiAgentV2TableEnabled(withoutUnsupportedSettings, v2Preferred)
+    : ensureMultiAgentV2FeatureFlag(withoutUnsupportedSettings, v2Preferred)
+  return ensureAgentsMaxThreads(featureConfig, threadLimit)
 }
 
 /**
@@ -139,59 +112,187 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function removeFeatureFlagSetting(
-  config: string,
-  featureName: string,
-): {
-  readonly config: string
-  readonly value: boolean | null
-} {
-  const section = findTomlSection(config, "features")
-  if (!section) return { config, value: null }
-  return {
-    config: removeSetting(config, section, featureName),
-    value: readBooleanSetting(section.text, featureName),
-  }
-}
-
-function ensureAgentsMaxThreads(config: string): string {
-  const maxThreadsValue = CODEX_SUBAGENT_THREAD_LIMIT.toString()
+function ensureAgentsMaxThreads(config: string, migratedThreadLimit: string | null): string {
+  const maxThreadsValue = migratedThreadLimit ?? CODEX_SUBAGENT_THREAD_LIMIT.toString()
   const section = findTomlSection(config, CODEX_AGENTS_HEADER)
   if (!section) {
     return appendBlock(config, `[${CODEX_AGENTS_HEADER}]\nmax_threads = ${maxThreadsValue}\n`)
   }
+  if (hasTomlSetting(config, `${CODEX_AGENTS_HEADER}.max_threads`)) return config
   return replaceOrInsertSetting(config, section, "max_threads", maxThreadsValue)
 }
 
-function removeAgentsMaxThreads(config: string): string {
-  const section = findTomlSection(config, CODEX_AGENTS_HEADER)
-  if (!section) return config
-  if (!/^\s*max_threads\s*=/m.test(section.text)) return config
-  return removeSetting(config, section, "max_threads")
+function ensureMultiAgentV2FeatureFlag(config: string, enabled: boolean): string {
+  const section = findTomlSection(config, "features")
+  if (section) return replaceOrInsertSetting(config, section, "multi_agent_v2", enabled.toString())
+  if (hasTomlRootDottedKeyPrefix(config, "features")) {
+    return replaceOrInsertRootDottedSetting(config, "features.multi_agent_v2", enabled.toString())
+  }
+  return appendBlock(config, `[features]\nmulti_agent_v2 = ${enabled}\n`)
 }
 
-function removeMultiAgentV2Disable(config: string): string {
-  const section = findTomlSection(config, CODEX_MULTI_AGENT_V2_HEADER)
-  if (!section) return config
-  if (!/^\s*enabled\s*=\s*false(?:\s*#.*)?$/m.test(section.text)) return config
-  return removeSetting(config, section, "enabled")
+function removeUnsupportedMultiAgentV2Settings(config: string): string {
+  const filtered = filterMultiAgentV2Settings(
+    config,
+    (path) => isMultiAgentV2Setting(path) && !isSupportedMultiAgentV2Setting(path),
+  )
+  if (hasSupportedMultiAgentV2TableSetting(filtered)) return filtered
+  return removeMultiAgentV2TableSections(filtered)
 }
 
-function setMultiAgentV2Disable(config: string): string {
-  const section = findTomlSection(config, CODEX_MULTI_AGENT_V2_HEADER)
-  if (!section) return config
-  return replaceOrInsertSetting(config, section, "enabled", "false")
+function hasSupportedMultiAgentV2TableSetting(config: string): boolean {
+  return ["enabled", "usage_hint_enabled", "usage_hint_text", "hide_spawn_agent_metadata"].some((setting) =>
+    hasTomlSetting(config, `features.multi_agent_v2.${setting}`),
+  )
 }
 
-function raiseExistingAgentsMaxThreads(config: string): string {
-  const section = findTomlSection(config, CODEX_AGENTS_HEADER)
-  if (!section) return config
-  if (!/^\s*max_threads\s*=/m.test(section.text)) return config
-  return replaceOrInsertSetting(config, section, "max_threads", CODEX_SUBAGENT_THREAD_LIMIT.toString())
+function ensureMultiAgentV2TableEnabled(config: string, enabled: boolean): string {
+  const withoutFeatureFlag = removeMultiAgentV2FeatureFlag(config)
+  const section = findTomlSection(withoutFeatureFlag, "features.multi_agent_v2")
+  if (section) return replaceOrInsertSetting(withoutFeatureFlag, section, "enabled", enabled.toString())
+  const features = findTomlSection(withoutFeatureFlag, "features")
+  if (features) return replaceOrInsertSetting(withoutFeatureFlag, features, "multi_agent_v2.enabled", enabled.toString())
+  return replaceOrInsertRootDottedSetting(withoutFeatureFlag, "features.multi_agent_v2.enabled", enabled.toString())
 }
 
-function readBooleanSetting(sectionText: string, key: string): boolean | null {
-  const match = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=\\s*(true|false)\\s*(?:#.*)?$`, "m").exec(sectionText)
-  if (!match) return null
-  return match[1] === "true"
+function removeMultiAgentV2FeatureFlag(config: string): string {
+  return filterMultiAgentV2Settings(
+    config,
+    (path) => path.length === 2 && path[0] === "features" && path[1] === "multi_agent_v2",
+  )
+}
+
+function readUnsupportedMultiAgentV2ThreadLimit(config: string): string | null {
+  let threadLimit: string | null = null
+  filterMultiAgentV2Settings(config, (path, value) => {
+    if (!isUnsupportedMultiAgentV2ThreadLimit(path) || threadLimit !== null) return false
+    const match = /^\s*(\d+)\b/.exec(value)
+    if (!match) return false
+    threadLimit = match[1] ?? null
+    return false
+  })
+  return threadLimit
+}
+
+function filterMultiAgentV2Settings(
+  config: string,
+  shouldRemove: (path: readonly string[], value: string) => boolean,
+): string {
+  const lines = config.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  const retained: string[] = []
+  let tablePath: readonly string[] = []
+  let multilineQuote: '"""' | "'''" | null = null
+  let retainMultilineValue = true
+
+  for (const line of lines) {
+    const multilineScan = scanTomlMultilineLine(line, multilineQuote)
+    if (multilineScan.wasInside) {
+      if (retainMultilineValue) retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+
+    const nextTablePath = parseTablePath(line)
+    if (nextTablePath) {
+      tablePath = nextTablePath
+      retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+
+    const assignmentIndex = findUnquotedAssignment(line)
+    if (assignmentIndex === -1) {
+      retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+    const settingPath = parseTomlDottedKey(line.slice(0, assignmentIndex).trim())
+    if (!settingPath) {
+      retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+    const fullPath = [...tablePath, ...settingPath]
+    const value = line.slice(assignmentIndex + 1)
+    const remove = shouldRemove(fullPath, value)
+    retainMultilineValue = !remove
+    if (!remove) retained.push(line)
+    multilineQuote = multilineScan.nextQuote
+  }
+  return retained.join("")
+}
+
+function isMultiAgentV2Setting(path: readonly string[]): boolean {
+  return path.length >= 3 && path[0] === "features" && path[1] === "multi_agent_v2"
+}
+
+function isMultiAgentV2TablePath(path: readonly string[]): boolean {
+  return path.length === 2 && path[0] === "features" && path[1] === "multi_agent_v2"
+}
+
+function isUnsupportedMultiAgentV2ThreadLimit(path: readonly string[]): boolean {
+  return isMultiAgentV2Setting(path) && path[2] === "max_concurrent_threads_per_session"
+}
+
+function isSupportedMultiAgentV2Setting(path: readonly string[]): boolean {
+  return isMultiAgentV2Setting(path) && path.length === 3 && SUPPORTED_MULTI_AGENT_V2_SETTINGS.has(path[2] ?? "")
+}
+
+function parseTablePath(line: string): readonly string[] | null {
+  const trimmed = line.trim()
+  const end = trimmed.lastIndexOf("]")
+  if (!trimmed.startsWith("[") || end <= 0 || trimmed.startsWith("[[")) return null
+  return parseTomlDottedKey(trimmed.slice(1, end).trim())
+}
+
+function removeMultiAgentV2TableSections(config: string): string {
+  const lines = config.match(/[^\n]*\n|[^\n]+$/g) ?? []
+  const retained: string[] = []
+  let multilineQuote: '"""' | "'''" | null = null
+  let removeCurrentSection = false
+
+  for (const line of lines) {
+    const multilineScan = scanTomlMultilineLine(line, multilineQuote)
+    if (multilineScan.wasInside) {
+      if (!removeCurrentSection) retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+    const tablePath = parseTablePath(line)
+    if (tablePath) {
+      removeCurrentSection = isMultiAgentV2TablePath(tablePath)
+      if (!removeCurrentSection) retained.push(line)
+      multilineQuote = multilineScan.nextQuote
+      continue
+    }
+    if (!removeCurrentSection) retained.push(line)
+    multilineQuote = multilineScan.nextQuote
+  }
+  return retained.join("").replace(/\n{3,}/g, "\n\n")
+}
+
+function findUnquotedAssignment(line: string): number {
+  let quote: "'" | '"' | null = null
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    if (quote === '"') {
+      if (char === "\\") {
+        index += 1
+        continue
+      }
+      if (char === '"') quote = null
+      continue
+    }
+    if (quote === "'") {
+      if (char === "'") quote = null
+      continue
+    }
+    if (char === "#") return -1
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === "=") return index
+  }
+  return -1
 }
