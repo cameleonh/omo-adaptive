@@ -17,6 +17,7 @@ import { applyReasoningOverride, ensureCodexReasoningConfig } from "./codex-conf
 import { readCodexModelCatalog } from "./codex-model-catalog"
 import { removeUnsupportedCodexMultiAgentModeConfig } from "./codex-multi-agent-mode-config"
 import { ensureCodexMultiAgentV2Config, resolveCodexMultiAgentVersion } from "./codex-multi-agent-v2-config"
+import { removeTomlSetting } from "./toml-setting-filter"
 import type { CodexAgentConfig, CodexInstallPlatform, CodexMarketplaceSource, TrustedHookState } from "./types"
 
 export async function updateCodexConfig(input: {
@@ -57,6 +58,7 @@ export async function updateCodexConfig(input: {
     new Set((input.agentConfigs ?? []).map((agentConfig) => agentConfig.name)),
   )
   config = ensureFeatureEnabled(config, "plugins")
+  config = removeTomlSetting(config, "features.plugin_hooks")
   config = ensureFeatureEnabled(config, "codex_hooks")
   config = ensureFeatureEnabled(config, "multi_agent")
   config = removeUnsupportedCodexMultiAgentModeConfig(config)

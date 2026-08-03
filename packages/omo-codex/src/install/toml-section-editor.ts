@@ -177,7 +177,7 @@ function tomlTableHeaderMatches(line: string, headerLine: string, targetHeaderPa
   return candidateHeaderPath.every((part, index) => part === targetHeaderPath[index])
 }
 
-function parseTomlTableHeader(line: string): readonly string[] | null {
+export function parseTomlTableHeader(line: string): readonly string[] | null {
   const normalizedLine = stripUnquotedInlineComment(line).trim()
   if (!normalizedLine.startsWith("[") || !normalizedLine.endsWith("]") || normalizedLine.startsWith("[[")) return null
   return parseTomlDottedKey(normalizedLine.slice(1, -1).trim())
@@ -248,7 +248,7 @@ function countPrecedingBackslashes(line: string, index: number): number {
   return count
 }
 
-function findUnquotedAssignment(line: string): number {
+export function findUnquotedAssignment(line: string): number {
   return findUnquotedCharacter(line, "=", 0)
 }
 

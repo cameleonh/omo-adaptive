@@ -128,4 +128,126 @@ describe("codex-config autonomous features", () => {
     const content = await readFile(configPath, "utf8")
     expect(content).not.toContain("child_agents_md")
   })
+
+  test("#given a legacy plugin_hooks feature table setting #when updating config #then replaces it with Codex 0.120 codex_hooks without touching user neighbors", async () => {
+    // given
+    const root = await mkdtemp(join(tmpdir(), "omo-codex-config-legacy-plugin-hooks-table-"))
+    const configPath = join(root, "config.toml")
+    await writeFile(
+      configPath,
+      [
+        '["features"] # migration note contains ]',
+        "# plugin_hooks was enabled by an earlier OMO release",
+        "plugin_hooks = true # obsolete Codex key",
+        "plugin_hooks_note = false",
+        "child_agents_md = false",
+        "",
+      ].join("\n"),
+    )
+
+    // when
+    await updateCodexConfig({
+      configPath,
+      repoRoot: "/repo/packages/omo-codex",
+      marketplaceName: "debug",
+      marketplaceSource: { sourceType: "local", source: "/repo/packages/omo-codex" },
+      pluginNames: ["omo"],
+    })
+    const afterFirstUpdate = await readFile(configPath, "utf8")
+    await updateCodexConfig({
+      configPath,
+      repoRoot: "/repo/packages/omo-codex",
+      marketplaceName: "debug",
+      marketplaceSource: { sourceType: "local", source: "/repo/packages/omo-codex" },
+      pluginNames: ["omo"],
+    })
+    const afterSecondUpdate = await readFile(configPath, "utf8")
+    await updateCodexConfig({
+      configPath,
+      repoRoot: "/repo/packages/omo-codex",
+      marketplaceName: "debug",
+      marketplaceSource: { sourceType: "local", source: "/repo/packages/omo-codex" },
+      pluginNames: ["omo"],
+    })
+
+    // then
+    const content = await readFile(configPath, "utf8")
+    expect(content).toContain("codex_hooks = true")
+    expect(content).not.toMatch(/^\s*(?:"plugin_hooks"|plugin_hooks)\s*=/m)
+    expect(content).toContain("# plugin_hooks was enabled by an earlier OMO release")
+    expect(content).toContain("plugin_hooks_note = false")
+    expect(content).toContain("child_agents_md = false")
+    expect(afterFirstUpdate).not.toMatch(/^\s*(?:"plugin_hooks"|plugin_hooks)\s*=/m)
+    expect(content).toBe(afterSecondUpdate)
+  })
+
+  test("#given a root dotted legacy plugin_hooks setting #when updating config #then removes only that exact feature path", async () => {
+    // given
+    const root = await mkdtemp(join(tmpdir(), "omo-codex-config-legacy-plugin-hooks-dotted-"))
+    const configPath = join(root, "config.toml")
+    await writeFile(
+      configPath,
+      [
+        'features."plugin_hooks" = true',
+        'plugin_hooks_note = "preserve this root value"',
+        "# features.plugin_hooks = true belongs to an old OMO release",
+        "",
+        "[[user.hook_history]]",
+        "plugin_hooks = true",
+        'label = "user-owned array-table field"',
+        "",
+      ].join("\n"),
+    )
+
+    // when
+    await updateCodexConfig({
+      configPath,
+      repoRoot: "/repo/packages/omo-codex",
+      marketplaceName: "debug",
+      marketplaceSource: { sourceType: "local", source: "/repo/packages/omo-codex" },
+      pluginNames: ["omo"],
+    })
+
+    // then
+    const content = await readFile(configPath, "utf8")
+    expect(content).toContain("codex_hooks = true")
+    expect(content).not.toMatch(/^\s*features\s*\.\s*(?:"plugin_hooks"|plugin_hooks)\s*=/m)
+    expect(content).toContain('plugin_hooks_note = "preserve this root value"')
+    expect(content).toContain("# features.plugin_hooks = true belongs to an old OMO release")
+    expect(content).toContain('[[user.hook_history]]\nplugin_hooks = true\nlabel = "user-owned array-table field"')
+  })
+
+  test("#given a multiline legacy plugin_hooks value #when updating config #then removes the whole obsolete assignment and keeps following settings", async () => {
+    // given
+    const root = await mkdtemp(join(tmpdir(), "omo-codex-config-legacy-plugin-hooks-multiline-"))
+    const configPath = join(root, "config.toml")
+    await writeFile(
+      configPath,
+      [
+        "[features]",
+        'plugin_hooks = """',
+        "obsolete",
+        '"""',
+        "plugins = false",
+        "plugin_hooks_note = false",
+        "",
+      ].join("\n"),
+    )
+
+    // when
+    await updateCodexConfig({
+      configPath,
+      repoRoot: "/repo/packages/omo-codex",
+      marketplaceName: "debug",
+      marketplaceSource: { sourceType: "local", source: "/repo/packages/omo-codex" },
+      pluginNames: ["omo"],
+    })
+
+    // then
+    const content = await readFile(configPath, "utf8")
+    expect(content).not.toContain("obsolete")
+    expect(content).not.toMatch(/^\s*plugin_hooks\s*=/m)
+    expect(content).toContain("plugins = true")
+    expect(content).toContain("plugin_hooks_note = false")
+  })
 })
