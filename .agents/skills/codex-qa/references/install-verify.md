@@ -27,11 +27,15 @@ Source: `packages/omo-codex/src/install/install-codex.ts`.
 3. Links agent TOMLs into `$CODEX_HOME/agents/*.toml`.
 4. Writes a marketplace snapshot under `$CODEX_HOME/.tmp/marketplaces/sisyphuslabs/`.
 5. Edits `$CODEX_HOME/config.toml`: enables `[plugins."omo@sisyphuslabs"]`,
-   the `[marketplaces.sisyphuslabs]` local source, `[features]`
-   (plugins/plugin_hooks/multi_agent/child_agents_md), and one
+   the `[marketplaces.sisyphuslabs]` local source, the Codex 0.120
+   `[features]` keys `plugins`, `codex_hooks`, and `multi_agent`, the
+   model-dependent `multi_agent_v2` setting, and `[agents].max_threads`.
+   It also writes one
    `[hooks.state."omo@sisyphuslabs:hooks/hooks.json:<event>:i:j"] trusted_hash`
-   per hook (so Codex trusts them — no `--dangerously-bypass-hook-trust` needed
-   for the app-server turn).
+   per materialized hook (so Codex trusts them — no
+   `--dangerously-bypass-hook-trust` needed for the app-server turn), and
+   materializes the supported plugin hook events into
+   `$CODEX_HOME/hooks.json` (the Codex 0.120 user-layer hook registry).
 
 ## Assertions (what install-verify.sh checks)
 
