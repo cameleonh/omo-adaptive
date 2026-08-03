@@ -14,13 +14,13 @@ Codex harness adapter for **oh-my-openagent**. Brings the OMO experience (rules 
 
 ## Components Vendored
 
-- `rules` (TypeScript) - injects `CONTEXT.md` / `.omo/rules/**` and other explicit rule sources into context via `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `PostCompact`; `AGENTS.md` is left to Codex native handling.
+- `rules` (TypeScript) - injects `CONTEXT.md` / `.omo/rules/**` and other explicit rule sources into context via `SessionStart`, `UserPromptSubmit`, and `PostToolUse`; its `PostCompact` declaration is retained for newer plugin-aware engines.
 - `comment-checker` (TypeScript) - runs `@code-yeongyu/comment-checker` after `apply_patch` / `edit` / `write` tool use.
 - `lsp` (TypeScript + LSP MCP) - exposes LSP diagnostics, navigation, symbols, rename via MCP + post-edit hooks.
 - `git-bash` (TypeScript + Git Bash MCP) - exposes the Windows-only `git_bash` MCP and reminds Codex on the first shell-like call, including the first one after compaction.
 - `ultrawork` (TypeScript) - keyword detector (`ulw` / `ultrawork`) that injects the full ultrawork directive; bundled agent TOML files are installed into `CODEX_HOME/agents`.
 - `ulw-loop` (TypeScript) - durable multi-goal orchestration backed by `.omo/ulw-loop/` evidence audit; `PreToolUse` spawn guards (fan-out cap + gate-artifact preflight) and a `Stop` auto-resume hook.
-- `start-work-continuation` (TypeScript) - `Stop` / `SubagentStop` continuation hook for `.omo/boulder.json` start-work plans.
+- `start-work-continuation` (TypeScript) - `Stop` continuation hook for `.omo/boulder.json` start-work plans; its `SubagentStop` declaration is retained for newer plugin-aware engines.
 - `telemetry` (TypeScript) - anonymous daily active telemetry hook.
 
 ## Install
@@ -35,9 +35,9 @@ npx lazycodex-ai install --no-tui --codex-autonomous
 
 To install **both** the Ultimate edition (OpenCode plugin) and the Light edition (this package) at once, use `--platform=both`.
 
-The installer copies the built plugin into `~/.codex/plugins/cache/sisyphuslabs/omo/<version>/`, writes the local marketplace snapshot under `~/.codex/.tmp/marketplaces/sisyphuslabs/plugins/omo/`, copies bundled agent TOMLs into `~/.codex/agents/`, enables `omo@sisyphuslabs` in `~/.codex/config.toml`, writes the valid `[features.multi_agent_v2]` limit table without enabling MultiAgentV2, and registers the `sisyphuslabs` marketplace from the local built cache. If an older config used `[features] multi_agent_v2 = false`, the installer preserves that explicit disable as table-form `enabled = false`. `lazycodex-ai` is the npm/bin alias and `lazycodex` is the marketplace repository; the marketplace identity remains `sisyphuslabs`.
+The installer copies the built plugin into `~/.codex/plugins/cache/sisyphuslabs/omo/<version>/`, writes the local marketplace snapshot under `~/.codex/.tmp/marketplaces/sisyphuslabs/plugins/omo/`, copies bundled agent TOMLs into `~/.codex/agents/`, enables `omo@sisyphuslabs`, and sets `[features] codex_hooks = true` in `~/.codex/config.toml`. Codex 0.120 discovers `~/.codex/hooks.json`, so the installer retains plugin manifest hook paths while materializing only `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` groups there. Reinstall replaces only OMO-marked groups and preserves user/unsupported groups; uninstall removes only the OMO-marked groups. The invalid `max_concurrent_threads_per_session` setting is migrated to `[agents].max_threads`; V2-preferred models enable `multi_agent_v2` as a boolean unless valid supported user table fields require `[features.multi_agent_v2]`, which are preserved. `lazycodex-ai` is the npm/bin alias and `lazycodex` is the marketplace repository; the marketplace identity remains `sisyphuslabs`.
 
-To remove managed Codex Light state, run `npx lazycodex-ai uninstall`. The backward-compatible alias is `npx lazycodex-ai cleanup`. Uninstall removes managed `sisyphuslabs` cache/marketplace directories, strips OMO marketplace/plugin/hook-state config blocks with a backup, removes managed agent TOML files from `~/.codex/agents/`, and repairs the known project-local legacy `.codex/config.toml` conflict while leaving project-owned `.codex` files in place.
+To remove managed Codex Light state, run `npx lazycodex-ai uninstall`. The backward-compatible alias is `npx lazycodex-ai cleanup`. Uninstall removes managed `sisyphuslabs` cache/marketplace directories, strips OMO marketplace/plugin/hook-state config blocks with a backup, removes only OMO-marked groups from `~/.codex/hooks.json`, removes managed agent TOML files from `~/.codex/agents/`, and migrates only the project-local obsolete V2 cap while leaving project-owned `.codex` files and `[agents].max_threads` in place.
 
 ### Local dev install (dogfood the source build)
 
@@ -141,7 +141,7 @@ setx OMO_CODEX_GIT_BASH_PATH "C:\Program Files\Git\bin\bash.exe"
 $env:OMO_CODEX_GIT_BASH_PATH = "C:\Program Files\Git\bin\bash.exe"
 ```
 
-The installer does not write a global Codex shell config. On Windows it enables the plugin MCP policy for `git_bash`; on non-Windows it keeps the manifest bundled but writes `enabled = false` for that MCP server. The Git Bash hook injects fixed guidance before the first Codex shell-like `Bash` hook call in a session, and again before the first shell-like call after `PostCompact`, recommending `git_bash` before built-in `exec_command`.
+The installer does not write a global Codex shell config. On Windows it enables the plugin MCP policy for `git_bash`; on non-Windows it keeps the manifest bundled but writes `enabled = false` for that MCP server. The Git Bash hook injects fixed guidance before the first Codex shell-like `Bash` hook call in a session. Its `PostCompact` reset remains declared for newer plugin-aware engines but is not materialized on Codex 0.120.
 
 To install both editions in one command, use `--platform=both`.
 

@@ -29,7 +29,7 @@ Validation batches are optional review boundaries declared at plan creation with
 
 This directory is a component of the aggregate `@sisyphuslabs/omo-codex-plugin` root. Plugin discovery (`.codex-plugin/plugin.json`) is owned by that aggregate root, not by this component. The component ships:
 
-- `hooks/hooks.json` registering four hooks:
+- `hooks/hooks.json` declaring four hooks for plugin-aware engines; Codex 0.120 materializes the supported groups in `CODEX_HOME/hooks.json`:
   - `UserPromptSubmit` -> `node "${PLUGIN_ROOT}/dist/cli.js" hook user-prompt-submit --with-ultrawork`
   - `PreToolUse` matching `^create_goal$` -> `node "${PLUGIN_ROOT}/dist/cli.js" hook pre-tool-use`
   - `PreToolUse` matching the spawn tool tokens -> `node "${PLUGIN_ROOT}/dist/cli.js" hook pre-tool-use-spawn` (fan-out cap + gate-artifact preflight)
@@ -62,11 +62,13 @@ The installer builds and copies the plugin into `~/.codex/plugins/cache/sisyphus
 ```toml
 [features]
 plugins = true
-plugin_hooks = true
+codex_hooks = true
 
 [plugins."omo@sisyphuslabs"]
 enabled = true
 ```
+
+The installer preserves user and unsupported hook groups in `CODEX_HOME/hooks.json`, replaces only OMO-marked groups on reinstall, and uninstall removes only those marked groups.
 
 ## Privacy
 

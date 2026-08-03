@@ -19,12 +19,12 @@ bun script/adaptive-policy-benchmark.ts \
 
 ## Checkout and hook preflight
 
-Use the planned immutable fork tag. Verify the revision before installing dependencies:
+Use the immutable fork tag. Verify the revision before installing dependencies:
 
 ```bash
-git clone --branch v4.19.4-adaptive.1 --depth 1 https://github.com/cameleonh/omo-adaptive.git
+git clone --branch v4.19.4-adaptive.2 --depth 1 https://github.com/cameleonh/omo-adaptive.git
 cd omo-adaptive
-test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.1"
+test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.2"
 git rev-parse HEAD
 git submodule update --init --recursive
 bun install

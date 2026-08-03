@@ -6,7 +6,7 @@ It ports the `pi-rules` rule injector to Codex:
 
 - `SessionStart` and `UserPromptSubmit` load static project instructions once per session.
 - `PostToolUse` watches Codex `apply_patch` by default, then injects matching file-specific rules as additional context.
-- `PostCompact` clears the per-session injection cache after manual or automatic compaction so relevant rules can be reintroduced into the compacted conversation.
+- `PostCompact` clears the per-session injection cache after manual or automatic compaction on newer plugin-aware engines; its declaration is retained but Codex 0.120 does not materialize it.
 - Session-level deduplication prevents the same rule from being repeated after it has been injected.
 
 `PostToolUse` output is context-only: it emits `hookSpecificOutput.additionalContext` and does not rewrite tool output.
@@ -55,13 +55,15 @@ It also enables:
 ```toml
 [features]
 plugins = true
-plugin_hooks = true
+codex_hooks = true
 multi_agent = true
 child_agents_md = true
 
 [plugins."omo@sisyphuslabs"]
 enabled = true
 ```
+
+Codex 0.120 discovers `CODEX_HOME/hooks.json`. The installer retains the plugin manifest paths, materializes this component's supported groups there, preserves user and unsupported groups, and replaces only OMO-marked groups on reinstall. Uninstall removes only those marked groups.
 
 ## Configuration
 

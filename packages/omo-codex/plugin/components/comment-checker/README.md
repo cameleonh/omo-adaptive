@@ -22,7 +22,7 @@ Deletes are ignored because they cannot introduce new comments.
 The plugin ships:
 
 - `.codex-plugin/plugin.json` for Codex plugin discovery.
-- `hooks/hooks.json` for the `PostToolUse` hook.
+- `hooks/hooks.json` as the declared `PostToolUse` hook path for plugin-aware engines; Codex 0.120 materializes the supported group in `CODEX_HOME/hooks.json`.
 - `skills/comment-checker/SKILL.md` with usage guidance.
 
 The hook command is:
@@ -60,11 +60,13 @@ The installer builds and copies the plugin into `~/.codex/plugins/cache/sisyphus
 ```toml
 [features]
 plugins = true
-plugin_hooks = true
+codex_hooks = true
 
 [plugins."omo@sisyphuslabs"]
 enabled = true
 ```
+
+The installer preserves user and unsupported hook groups in `CODEX_HOME/hooks.json`, replaces only OMO-marked groups on reinstall, and uninstall removes only those marked groups.
 
 ## Branch Rules and Releases
 

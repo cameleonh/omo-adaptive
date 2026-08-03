@@ -21,8 +21,9 @@ Native Codex marketplace for the `omo` plugin.
 npx lazycodex-ai install
 ```
 
-The installer builds `omo`, copies a clean versioned cache entry into `~/.codex/plugins/cache/sisyphuslabs/omo`, installs runtime dependencies in the cache, writes a local marketplace snapshot under `~/.codex/.tmp/marketplaces/sisyphuslabs/plugins/omo`, copies bundled-agent TOMLs into `~/.codex/agents/`, registers the `sisyphuslabs` marketplace from the local built cache, and enables `[plugins."omo@sisyphuslabs"]` in `~/.codex/config.toml`.
-It also enables both `plugins = true` and `plugin_hooks = true` under `[features]` so bundled hook files run.
+The installer builds `omo`, copies a clean versioned cache entry into `~/.codex/plugins/cache/sisyphuslabs/omo`, installs runtime dependencies in the cache, writes a local marketplace snapshot under `~/.codex/.tmp/marketplaces/sisyphuslabs/plugins/omo`, copies bundled-agent TOMLs into `~/.codex/agents/`, registers the `sisyphuslabs` marketplace from the local built cache, enables `[plugins."omo@sisyphuslabs"]`, and sets `plugins = true` plus `codex_hooks = true` under `[features]` in `~/.codex/config.toml`.
+
+Codex 0.120 discovers hooks from `~/.codex/hooks.json`, not directly from the plugin manifest. The manifest paths remain available for newer plugin-aware engines; the installer materializes only `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` groups, preserves user and unsupported groups, and replaces only the OMO-marked groups on reinstall. Uninstall removes only those marked groups.
 
 If your local Codex build exposes plugin install commands, you can use those instead. For older local builds, the installer replaces the manual copy fallback:
 

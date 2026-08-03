@@ -20,7 +20,7 @@ This fork keeps OMO's orchestration features but changes the default decision po
 | Programming skill | TDD plus unit, integration, E2E, and a full post-write review were mandatory for every code edit | Failing-first tests remain the default for bugs and new behavior; mechanical, generated, prose, and config-only edits use the narrowest existing contract check |
 | Debugging skill | At least three hypotheses, parallel investigation, multi-Oracle escalation, a full suite, and manual QA were built into the normal loop | Start with the smallest discriminating observation and one falsifiable hypothesis; expand, delegate, or broaden tests only when ambiguity and risk justify it |
 | Frontend and visual QA | Greenfield work fired every research lane, optional React tooling was auto-installed, and any UI change required every-page dual-review QA | Research, tooling, captures, and reviews are scoped to the affected surface; dual review is reserved for significant redesigns, releases, and reference-fidelity work |
-| Codex concurrency | Installer-managed V1 and V2 defaults were `1000` and `16` | Both newly managed defaults are `6`; an existing explicit V2 cap is preserved |
+| Codex concurrency | The obsolete V2-only thread cap was written under `[features.multi_agent_v2]` | Its value is migrated to `[agents].max_threads` (default `6`); V2-preferred models enable `multi_agent_v2` while supported user table fields remain intact |
 | Contributor workflow | Worktree, on-disk plan, goal loop, PR, live harness QA, and durable evidence were mandatory for every patch | Those mechanisms are selected by scope and risk; real Codex/OpenCode QA still uses isolated homes and never touches the user's real state |
 
 The main policy changes live in:
@@ -36,12 +36,12 @@ The internal Codex plugin name remains `omo`, the marketplace identity remains `
 
 ### Evaluate this fork for Codex first
 
-The published `lazycodex-ai` package is upstream and does not contain these changes. Check out the planned immutable fork tag. Then follow the executable [Adaptive policy benchmark](docs/reference/adaptive-policy-evaluation.md) guide to prepare both isolated templates and run the full dry-run matrix before any live evaluation:
+The published `lazycodex-ai` package is upstream and does not contain these changes. Check out the immutable fork tag. Then follow the executable [Adaptive policy benchmark](docs/reference/adaptive-policy-evaluation.md) guide to prepare both isolated templates and run the full dry-run matrix before any live evaluation:
 
 ```bash
-git clone --branch v4.19.4-adaptive.1 --depth 1 https://github.com/cameleonh/omo-adaptive.git
+git clone --branch v4.19.4-adaptive.2 --depth 1 https://github.com/cameleonh/omo-adaptive.git
 cd omo-adaptive
-test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.1"
+test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.2"
 git rev-parse HEAD
 git submodule update --init --recursive
 bun install
@@ -132,7 +132,7 @@ bun run install:codex-dev
 [![GitHub Forks](https://img.shields.io/github/forks/code-yeongyu/oh-my-openagent?color=8ae8ff&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/network/members)
 [![GitHub Stars](https://img.shields.io/github/stars/code-yeongyu/oh-my-openagent?color=ffcb47&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/code-yeongyu/oh-my-openagent?color=ff80eb&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/issues)
-[![License](https://img.shields.io/badge/license-SUL--1.0-white?labelColor=black&style=flat-square)](https://github.com/cameleonh/omo-adaptive/blob/v4.19.4-adaptive.1/LICENSE.md)
+[![License](https://img.shields.io/badge/license-SUL--1.0-white?labelColor=black&style=flat-square)](https://github.com/cameleonh/omo-adaptive/blob/v4.19.4-adaptive.2/LICENSE.md)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/code-yeongyu/oh-my-openagent)
 [![Docs](https://img.shields.io/badge/docs-omo.vibetip.help-369eff?labelColor=black&logo=readthedocs&logoColor=white&style=flat-square)](https://omo.vibetip.help/docs)
 
@@ -204,7 +204,7 @@ Paste this prompt into Claude Code, AmpCode, Cursor, or any agent:
 
 ```
 Install and configure oh-my-openagent by following the instructions here:
-https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
+https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.2/docs/guide/installation.md
 ```
 
 If you only want the **Light edition** (Codex CLI), the installer asks whether to configure Codex for autonomous full-permissions mode. You can run it yourself in one line:
@@ -222,7 +222,7 @@ For the Light edition, Bun is not required. Use `npx lazycodex-ai install` from 
 Fetch the full guide and follow it step by step:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
+curl -fsSL https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.2/docs/guide/installation.md
 ```
 
 The guide covers: platform selection, the subscription interview, provider authentication (Anthropic / Gemini / Copilot / Z.ai / OpenCode Zen), the agent-to-model matching matrix, modes (`ultrawork`, `search`, `analyze`, `team`, `hyperplan`), slash commands, the Light edition's 8 Codex components, Team Mode, and uninstall. Don't summarize it; read it end to end.
@@ -251,7 +251,7 @@ See [Privacy Policy](docs/legal/privacy-policy.md) and [Terms of Service](docs/l
 We're past the era of reading docs. Just paste this into your agent:
 
 ```
-Read this and tell me why it's not just another boilerplate: https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/README.md
+Read this and tell me why it's not just another boilerplate: https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.2/README.md
 ```
 
 
@@ -484,7 +484,7 @@ To remove oh-my-openagent:
    omo cleanup --platform=codex
    ```
 
-   The uninstall command removes managed `sisyphuslabs` Codex cache/marketplace state, strips `omo@sisyphuslabs` plugin and hook-state blocks from `~/.codex/config.toml` after writing a backup, and removes agent TOML links listed in the install manifest. If a specific project still has old project-local Codex plugin state, run the command from that project or pass `--project <path>`; it repairs known project-local `.codex/config.toml` conflicts and reports project-local `.codex` artifacts without deleting project-owned files.
+   The uninstall command removes managed `sisyphuslabs` Codex cache/marketplace state, strips `omo@sisyphuslabs` plugin and hook-state blocks from `~/.codex/config.toml` after writing a backup, removes only OMO-marked hook groups from `~/.codex/hooks.json`, and removes agent TOML links listed in the install manifest. If a specific project still has old project-local Codex plugin state, run the command from that project or pass `--project <path>`; it migrates only the obsolete V2 thread-cap setting and reports project-local `.codex` artifacts without deleting project-owned files.
 
 ## Features
 
