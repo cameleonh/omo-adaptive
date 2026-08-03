@@ -1,6 +1,6 @@
 # shared-skills — Cross-Harness SKILL.md Bundle (Skills)
 
-**Generated:** 2026-07-17 (7d664b96b)
+**Generated:** 2026-08-03 (upstream base a6dbc0ca, branch main, package v4.19.4)
 
 ## OVERVIEW
 

@@ -195,7 +195,7 @@ A `tsconfig.json` with `"strict": true` alone is **not** strict. The reference e
 
 ## CODE SMELLS — AUTOMATIC REVIEW TRIGGERS
 
-Most smells below are design review triggers: STOP, re-examine the code, and either fix the smell or justify carrying it with a SPECIFIC reason. **The 250 pure LOC ceiling is stricter: >250 is a DEFECT. Refactor before adding lines except for rare SIZE_OK or pure-data-table exceptions.**
+Most smells below are design review triggers: STOP, re-examine the code, and either fix the smell or justify carrying it with a SPECIFIC reason. Apply the tiered actions in POST-WRITE REVIEW: Standard records findings and applies local risk mitigation, expanding only when essential to safely complete the current request or explicitly requested; Deep follows the full review and escalates for concrete findings. **The 250 pure LOC ceiling is stricter: >250 is a DEFECT. Deep must refactor before adding lines except for rare SIZE_OK or pure-data-table exceptions; Standard must not add lines unless essential to the current request and otherwise records the boundary for local mitigation.**
 
 Full rationale, measurement methods, workaround detection, and split examples: **[`references/code-smells.md`](references/code-smells.md)**.
 
@@ -203,7 +203,7 @@ Full rationale, measurement methods, workaround detection, and split examples: *
 
 A source file past 250 non-blank, non-comment lines has outgrown a single reviewer's working memory. The module is almost certainly doing more than one thing. Measure: `awk '!/^[[:space:]]*$/ && !/^[[:space:]]*(\/\/|#|--)/' <file> | wc -l`.
 
-**When detected:** Name what the file owns in one short noun phrase. If the answer needs "and", the file needs splitting. Load `/refactor` and split by responsibility. If the file genuinely cannot be split (generated parser, indivisible state machine), mark with `// allow: SIZE_OK — <reason>`.
+**When detected:** Name what the file owns in one short noun phrase. If the answer needs "and", record that the file needs splitting. Load `/refactor` and split by responsibility for a Deep finding or an explicit user request. For a Standard finding, apply local risk mitigation and expand only when the current request cannot be completed safely without the split or the user explicitly requests it. If the file genuinely cannot be split (generated parser, indivisible state machine), mark with `// allow: SIZE_OK: <reason>`.
 
 ### Smell 2 — Function with more than 3 parameters
 
@@ -243,11 +243,19 @@ Logging is part of the code you ship, and it has iron rules of its own: levels c
 
 ## POST-WRITE REVIEW
 
-Run the full loop after substantive implementation or refactoring. For a trivial mechanical edit, inspect the diff and run the narrow changed-surface check; do not expand scope solely to perform this checklist.
+Choose the review tier from the changed surface and consequence of failure:
 
-### Step 1 — measure
+- **Light**: docs, skill/prompt prose, metadata, generated output, or an explicitly non-behavioral/mechanical atomic edit. Runtime, security, data, public-contract, or user-visible behavior changes are at least Standard. Inspect the diff and run the directly applicable parser, formatter, or packaging check. Do not recite the architectural checklist or escalate to refactor/remove-ai-slops based solely on a Light review.
+- **Standard**: localized runtime behavior or installer/config work across a few related files. Inspect the changed surface, run changed-file diagnostics and focused tests, and run a matching-surface smoke when the behavior is user-visible. Check the touched source for strict typing, safety, TDD coverage, and concrete smell triggers; do not launch an unrelated refactor or cleanup.
+- **Deep**: cross-module architecture, security, concurrency, migrations, release work, broad UI changes, an explicitly requested full review, or a failure in a high-risk surface. Run Steps 1-4 below in full. Refactor/remove-ai-slops routing is justified when this review finds a concrete issue that demands it; an explicit user request remains sufficient regardless of tier.
 
-For every file you created or modified:
+An explicit user request to load `refactor` or `remove-ai-slops` overrides the selected tier, including Light; do not suppress that request.
+
+The smell checks below apply to the changed source surface in Standard and Deep reviews; they do not turn a Light prose/metadata edit into an architectural review.
+
+### Step 1: measure (Deep; Standard for touched source files that gain source lines or whose pre-edit pure LOC is at least 200)
+
+For Deep, measure every file you created or modified. For Standard, measure each touched source file when the diff adds source lines or its pre-edit pure LOC is at least 200; this deterministically covers files that may cross or already exceed the 200/250 thresholds:
 
 ```bash
 awk '!/^[[:space:]]*$/ && !/^[[:space:]]*(\/\/|#|--)/' <file> | wc -l
@@ -266,15 +274,15 @@ bun run scripts/typescript/check-no-excuse-rules.ts <changed paths>
 
 ### Step 2 — interpret
 
-| Pure LOC | Verdict | Required action |
-|---|---|---|
-| ≤ 200 | Healthy | continue |
-| 200 - 250 | **Warning band** | State that fact and propose a split if the next edit will add lines. |
-| > 250 | **DEFECT** | Do NOT commit new lines to this file. Refactor now: split the touched unit before adding lines, except for rare SIZE_OK or pure-data-table exceptions. |
+| Pure LOC | Verdict | Standard action | Deep action |
+|---|---|---|---|
+| ≤ 200 | Healthy | Continue. | Continue. |
+| 200 - 250 | **Warning band** | Record the warning and propose a split only if it is essential to the current request or explicitly requested. | State the warning and propose a split if the next edit will add lines. |
+| > 250 | **DEFECT** | Do not add lines unless essential to safely complete the current request. Record the boundary and apply local risk mitigation; expand only when essential or explicitly requested. | Do NOT commit new lines to this file. Refactor now: split the touched unit before adding lines, except for rare SIZE_OK or pure-data-table exceptions. |
 
-### Step 3 — architectural self-review (always, even at 80 LOC)
+### Step 3: architectural self-review (Deep only, unless explicitly requested)
 
-After every code-writing session, answer these out loud (in your reply) before declaring done:
+After a Deep review, answer these out loud (in your reply) before declaring done:
 
 1. **Single responsibility?** Can I name what this file owns in one short noun phrase? If the answer needs the word "and", split.
 2. **Boundary purity?** Did I parse untrusted input into a typed value at the boundary, or did I pass `dict[str, Any]` / `serde_json::Value` / `unknown` past the boundary? If the latter, fix it.
@@ -290,12 +298,14 @@ After every code-writing session, answer these out loud (in your reply) before d
 
 **If any answer fails, fix it before declaring done.** This loop is the difference between "the code compiles" and "the code is correct."
 
-### Step 4 — if you need to refactor right now, invoke the right skill
+### Step 4: if a concrete issue requires refactoring, invoke the right skill
 
-- Any code smell from the [CODE SMELLS section](#code-smells--automatic-review-triggers) fired (250+ LOC, >3 params, redundant verification, negative naming), or step 3 surfaced more than two issues: **load the `refactor` skill** and execute its safe-refactor protocol (codemap, plan, LSP-driven edits, test after each step). Do not improvise a refactor under time pressure — the refactor skill exists precisely so you do not corrupt behavior while reshaping structure.
-- You inherited a branch with AI-generated patterns (broad `except`, redundant null checks, vague TODOs, oversized modules, dead helpers, redundant post-action verification): **load the `remove-ai-slops` skill** to do a categorized branch-scope cleanup with regression tests pinned first.
+- If a Standard review finds any code smell from the [CODE SMELLS section](#code-smells--automatic-review-triggers) (250+ LOC, >3 params, redundant verification, negative naming), record the finding and apply local risk mitigation; do not load `refactor` solely because the finding exists. Expand only when the current request cannot be completed safely without it or the user explicitly requests it. A Deep review that finds a smell, or a Deep checklist that surfaces more than two issues, **loads the `refactor` skill** and executes its safe-refactor protocol (codemap, plan, LSP-driven edits, test after each step). Do not improvise a refactor under time pressure; the refactor skill exists precisely so you do not corrupt behavior while reshaping structure.
+- If a Standard review finds inherited AI-generated patterns (broad `except`, redundant null checks, vague TODOs, oversized modules, dead helpers, redundant post-action verification), record the finding and apply local risk mitigation; do not load `remove-ai-slops` solely because the finding exists. Expand only when the current request cannot be completed safely without it or the user explicitly requests it. A Deep review that finds inherited AI-generated patterns **loads the `remove-ai-slops` skill** to do a categorized branch-scope cleanup with regression tests pinned first.
 
-These two skills are not optional cosmetics. They are the recovery path for the smells this loop is designed to catch.
+An explicit user request to load `refactor` or `remove-ai-slops` is mandatory at every tier, including Light.
+
+In automatic routing, these skills are the recovery path for concrete Deep findings or for a current request that cannot be completed safely without expansion.
 
 ---
 
@@ -303,8 +313,8 @@ These two skills are not optional cosmetics. They are the recovery path for the 
 
 | Trigger | Skill to load | Why |
 |---|---|---|
-| Any [code smell](#code-smells--automatic-review-triggers) fires (250+ LOC, >3 params, redundant verification), OR the post-write loop surfaces 2+ issues, OR the user says "reshape this", "extract this", "clean this up" | `refactor` | Safe codemap-driven multi-step refactor with LSP + tests after each step. Never improvise a structural change. |
-| Recent branch contains AI-authored patterns (broad except, dead helpers, vague comments, oversized files, redundant post-action verification), OR the user says "remove slop", "clean AI code", "deslop" | `remove-ai-slops` | Tests pinned FIRST, then categorized parallel cleanup, then quality gates. Behavior-preserving. |
+| A Deep review finds any [code smell](#code-smells--automatic-review-triggers) (250+ LOC, >3 params, redundant verification), the Deep checklist surfaces 2+ issues, the current request cannot be completed safely without refactoring, OR the user explicitly says "reshape this", "extract this", "clean this up" | `refactor` | Safe codemap-driven multi-step refactor with LSP + tests after each step. Standard findings alone are recorded and locally mitigated. |
+| A Deep review finds inherited AI-authored patterns (broad except, dead helpers, vague comments, oversized files, redundant post-action verification), the current request cannot be completed safely without cleanup, OR the user explicitly says "remove slop", "clean AI code", "deslop" | `remove-ai-slops` | Tests pinned FIRST, then categorized parallel cleanup, then quality gates. Standard findings alone are recorded and locally mitigated. |
 | Rust code touches `unsafe`, `*mut`, `*const`, `MaybeUninit`, FFI, `unsafe impl Send/Sync`, or a custom lock-free primitive | `references/rust-ub/` | Full UB taxonomy + Miri strictness escalation. Every `unsafe` block must survive Miri Level 3 (strict provenance + symbolic alignment + preemption) before it ships. |
 
 ---
