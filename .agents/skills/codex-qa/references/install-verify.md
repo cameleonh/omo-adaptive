@@ -32,7 +32,7 @@ Source: `packages/omo-codex/src/install/install-codex.ts`.
    model-dependent `multi_agent_v2` setting, and `[agents].max_threads`.
    It also writes one
    `[hooks.state."omo@sisyphuslabs:hooks/hooks.json:<event>:i:j"] trusted_hash`
-   per materialized hook (so Codex trusts them — no
+   per declared command hook (so Codex trusts them — no
    `--dangerously-bypass-hook-trust` needed for the app-server turn), and
    materializes the supported plugin hook events into
    `$CODEX_HOME/hooks.json` (the Codex 0.120 user-layer hook registry).
