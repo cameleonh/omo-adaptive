@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ulwLoopCommand } from "../src/cli-commands.js";
-import { ULW_LOOP_AGGREGATE_CODEX_OBJECTIVE } from "../src/goal-status.js";
 
 let testDir: string;
 let out: string[];
 let originalOmoSessionId: string | undefined;
+let codexObjective = "";
 
 beforeEach(async () => {
 	testDir = await mkdtemp(join(tmpdir(), "ug-cli-checkpoint-next-"));
@@ -38,8 +38,16 @@ function stdoutJson(): Record<string, unknown> {
 	return JSON.parse(out.join(""));
 }
 
+function captureCodexObjective(): void {
+	const plan = stdoutJson()["plan"];
+	if (!plan || typeof plan !== "object" || !("codexObjective" in plan) || typeof plan.codexObjective !== "string") {
+		throw new Error("create-goals did not return a plan codexObjective");
+	}
+	codexObjective = plan.codexObjective;
+}
+
 function codexSnapshot(): string {
-	return JSON.stringify({ goal: { objective: ULW_LOOP_AGGREGATE_CODEX_OBJECTIVE, status: "active" } });
+	return JSON.stringify({ goal: { objective: codexObjective, status: "active" } });
 }
 
 async function passCriterion(criterionId: string): Promise<void> {
@@ -62,6 +70,7 @@ async function passCriterion(criterionId: string): Promise<void> {
 describe("ulwLoopCommand checkpoint continuation", () => {
 	it("#given another pending goal #when checkpoint completes #then JSON includes the next goal", async () => {
 		expect(await ulwLoopCommand(["create-goals", "--brief", "- Goal A\n- Goal B", "--json"])).toBe(0);
+		captureCodexObjective();
 		resetOutput();
 		await passCriterion("C001");
 		await passCriterion("C002");
@@ -87,6 +96,7 @@ describe("ulwLoopCommand checkpoint continuation", () => {
 
 	it("#given no-advance #when checkpoint completes #then JSON omits next", async () => {
 		expect(await ulwLoopCommand(["create-goals", "--brief", "- Goal A\n- Goal B", "--json"])).toBe(0);
+		captureCodexObjective();
 		resetOutput();
 		await passCriterion("C001");
 		await passCriterion("C002");
