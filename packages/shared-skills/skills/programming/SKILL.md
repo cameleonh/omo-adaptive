@@ -1,6 +1,6 @@
 ---
 name: programming
-description: "MUST USE for ANY work on .py .pyi .rs .ts .tsx .mts .cts .go files. One philosophy: strict types, modern stacks (Pydantic v2 / serde+thiserror / Zod / gin+sqlc+pgx+slog), modern toolchains (uv+basedpyright+ruff / cargo+clippy+miri / Bun+Biome+tsc / gofumpt+golangci-lint v2+nilaway+go-race), parse-don't-validate, exhaustive match, typed errors, no any/unwrap/panic, 250 LOC ceiling, TDD, consumer-routed logging. Routes to references/{python,rust,typescript,rust-ub,go}/ + references/logging.md. Triggers: write/edit Python/Rust/TypeScript/Go code, new project, gin server, bubbletea TUI, CJK IME, connect-go RPC, sqlc pgx, branded ids, exhaustive match, unsafe Rust, miri, oversized file, refactor, TDD, e2e test, logging, log levels, structured logging, observability, arena, allocator, bumpalo, const fn, const generics, comptime, zero-alloc, bitfield, repr, scopeguard, errdefer, Zig-like, zerocopy, packed struct."
+description: "Use for substantive Python, Rust, TypeScript, or Go implementation and refactoring. Applies strict types, stack-aware patterns, risk-proportional TDD, and consumer-routed logging. Load the matching language references when they materially inform the change; trivial mechanical edits and prose/config-only work follow the repository's local checks without the full workflow."
 ---
 
 # Programming
@@ -11,9 +11,9 @@ This skill is an index. The hard per-language rules live under `references/`. Lo
 
 ---
 
-## PHASE 0 — LANGUAGE GATE (RUN THIS FIRST, EVERY TIME)
+## PHASE 0 - LANGUAGE ROUTING
 
-**DO NOT WRITE OR EDIT A SINGLE LINE OF CODE BEFORE COMPLETING THIS GATE.**
+For substantive implementation, identify the language and load the matching reference before writing code. A trivial mechanical edit with no new behavior may follow the surrounding code and repository checks without loading an entire reference set.
 
 1. **Identify the language** from the file extension or the user's request.
 2. **STOP** and read the matching reference set:
@@ -25,9 +25,7 @@ This skill is an index. The hard per-language rules live under `references/`. Lo
    | `.ts`, `.tsx`, `.mts`, `.cts`, "TypeScript" | `references/typescript/README.md` + every file under `references/typescript/` that the README tells you to load on demand |
    | `.go`, `go.mod`, `go.sum`, `.golangci.yml`, `*.proto` next to a Go module, "Go" / "Golang" | `references/go/README.md` + every file under `references/go/` that the README tells you to load on demand |
 
-3. Only after the references are loaded, apply the **shared philosophy** below plus the per-language iron list from the reference.
-
-**No exceptions for "small" or "one-off" code.** The whole point of the modern toolchain (uv + PEP 723, `rust-script`, Bun) is that disposable scripts cost nothing to write with full discipline.
+3. Apply the shared philosophy below plus the relevant per-language rules. Load only the on-demand references the change actually needs.
 
 ---
 
@@ -47,13 +45,13 @@ These are not style preferences. They are the seven axioms every recipe in `refe
 
 5. **Trust framework guarantees. Validate only at boundaries.** No null checks for values the type system already proves non-null. No `try/except` around code that cannot raise. No `unwrap`/`!`/`as` to paper over a contract you should have encoded in types. No defensive layer for a scenario you cannot name.
 
-6. **Test-driven, with the right shape of test.** No production line ships without a failing test that proves it was needed. Behavior is locked by tests, not by hope. See the TDD discipline below.
+6. **Test behavior at the boundary it changes.** New behavior and bug fixes normally start with a failing test. Mechanical, generated, prose, and configuration-only edits use the narrowest existing contract check instead of manufacturing a test.
 
 ---
 
-## TDD DISCIPLINE — NON-NEGOTIABLE
+## TDD DISCIPLINE - RISK PROPORTIONAL
 
-**Every change follows the red → green → refactor loop.** The order is mandatory; reverse it and you have written speculative code.
+Use red -> green -> refactor for bug fixes, new behavior, and previously unprotected behavioral boundaries. Skip a new red test when no runtime behavior changes, the file is generated, the change is pure prose/configuration, or the repository has no suitable test seam. State which existing check covers the edit.
 
 ### The order
 
@@ -61,9 +59,9 @@ These are not style preferences. They are the seven axioms every recipe in `refe
 2. **Green.** Write the minimum code to make the test pass. Resist adding the second case until the first passes. The second case is the next red.
 3. **Refactor.** With the test green, restructure ruthlessly. The test is your safety net. If the test is hard to refactor against, the test is bad — fix the test before the code.
 
-### The shape of the test pyramid
+### Choose the necessary test level
 
-Every feature ships with all three rungs, sized in this proportion:
+Use the lowest rung that can fail for the changed contract. Add higher rungs only when the change crosses those boundaries:
 
 | Rung | Count | Purpose | Speed budget |
 |---|---|---|---|
@@ -71,11 +69,11 @@ Every feature ships with all three rungs, sized in this proportion:
 | **Integration** | some | The real adapter against the real downstream (DB, queue, HTTP) — via `testcontainers`, `httptest`, or equivalent. NEVER a unit test pretending to be integration. | < 1 s each |
 | **E2E scenario** | few | One narrative per user-visible outcome. Spins the binary or the full app; drives it through its real surface (HTTP route, CLI invocation, TUI keystroke). Asserts the *observable outcome*, not internal state. | seconds, run on CI |
 
-If a feature has zero E2E coverage, it is undone — even if every unit test passes.
+Most localized changes need one or two rungs, not all three. E2E coverage is required when a user-visible outcome or cross-process journey changed, not for every internal edit.
 
-### Given / When / Then is mandatory
+### Given / When / Then for new behavioral tests
 
-Every test — unit, integration, E2E — is structured by these three blocks. Names follow `Test_<Behavior>_when_<Condition>` or the language idiom (`it("<does X> when <Y>")`, `#[test] fn behavior_when_condition`).
+New behavioral tests should make precondition, action, and observable outcome clear. Follow the repository's naming idiom rather than renaming unrelated existing tests.
 
 ```
 Given: the preconditions and fixtures
@@ -243,9 +241,9 @@ Logging is part of the code you ship, and it has iron rules of its own: levels c
 
 ---
 
-## MANDATORY POST-WRITE REVIEW LOOP
+## POST-WRITE REVIEW
 
-**This runs EVERY time you finish writing or substantively editing code, before you claim the task is done.** No exceptions.
+Run the full loop after substantive implementation or refactoring. For a trivial mechanical edit, inspect the diff and run the narrow changed-surface check; do not expand scope solely to perform this checklist.
 
 ### Step 1 — measure
 
@@ -392,6 +390,6 @@ These two skills are not optional cosmetics. They are the recovery path for the 
 
 ## Activation
 
-This skill activates whenever you are writing or modifying any `.py`, `.pyi`, `.rs`, `.ts`, `.tsx`, `.mts`, `.cts`, `.go` file, or any project manifest (`pyproject.toml`, `Cargo.toml`, `package.json`, `tsconfig.json`, `biome.json`, `go.mod`, `go.sum`, `.golangci.yml`, `Taskfile.yml`, `buf.yaml`, `sqlc.yaml`). **Even one-off scripts get the full treatment** - that is the whole point of `uv run` + PEP 723, `rust-script`, `bun run`, and `go run` + `//go:build ignore`: production hygiene with throwaway ergonomics.
+Use this skill for substantive work in `.py`, `.pyi`, `.rs`, `.ts`, `.tsx`, `.mts`, `.cts`, or `.go` files and for manifests whose behavior or toolchain is changing. A one-line mechanical edit, generated output, or prose-only manifest metadata does not by itself justify the full workflow.
 
-The references contain the recipes. **Read them before writing code. Re-read them when the model drifts.** The post-write review loop is non-negotiable.
+The references contain recipes. Load the smallest relevant set before substantive implementation and re-read them when the design depends on their rules.

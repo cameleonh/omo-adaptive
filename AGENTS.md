@@ -1,60 +1,46 @@
-# oh-my-opencode — OpenCode Plugin
+# OMO Adaptive - Multi-Harness Agent OS Fork
 
-> **HOLD THE FUCK UP. THIS ENTIRE GODDAMN CODEBASE IS BEING RIPPED APART AND REBUILT RIGHT NOW. A MASSIVE MULTI-HARNESS AGENT OS REFACTOR IS IN PROGRESS — WE ARE RESTRUCTURING EVERYTHING TO SUPPORT MULTIPLE AGENT HARNESSES (OPENCODE, CODEX, PI, AND OTHERS). DO NOT TRUST THE STRUCTURE BELOW AS STABLE. READ THE [ROADMAP](./ROADMAP.md) BEFORE YOU TOUCH ANYTHING OR SO HELP ME GOD.**
+> **Modified fork notice:** OMO Adaptive is based on [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent). This fork changes execution policy, shared skills, and Codex concurrency defaults. Preserve upstream copyright, license, and third-party notices.
+
+> The multi-harness refactor is active. Read [ROADMAP.md](./ROADMAP.md) before changing architecture and verify paths instead of assuming the structure is stable.
 
 **Generated:** 2026-07-17 | **Source snapshot:** 7d664b96b | **Branch:** dev | **Release:** v4.18.2
 
-## STOP. QA IS MANDATORY. NON-NEGOTIABLE. EVERY SINGLE TIME YOU TOUCH AN OPENCODE- OR CODEX-CONNECTED COMPONENT.
+## Adaptive execution policy
 
-> **IF YOUR CHANGE TOUCHES ANYTHING WIRED INTO OPENCODE OR INTO THE CODEX LIGHT EDITION, YOU MUST QA IT. ALWAYS. EVERY SINGLE TIME. NO EXCEPTIONS. THERE IS NO "TOO SMALL TO SKIP". THERE IS NO "IT OBVIOUSLY WORKS".**
+Choose effort from the changed surface and consequence of failure, not from model capability.
 
-**"It typechecks" is NOT QA. "`bun test` is green" is NOT QA.** YOU MUST DRIVE THE REAL HARNESS, and then **YOU MUST WRITE THE EVIDENCE TO DISK.** If there is no evidence file, **the QA DID NOT HAPPEN**, and **YOU ARE NOT ALLOWED TO COMMIT OR PUSH.**
+| Tier | Typical work | Required evidence |
+|---|---|---|
+| Light | Answers, docs, prompt or skill prose, metadata, and known atomic edits | Diff inspection plus the directly applicable parser, formatter, or packaging check |
+| Standard | Localized runtime behavior or installer/config changes across a few related files | Changed-file diagnostics, narrow tests, and one matching-surface smoke when behavior is user-visible |
+| Deep | Cross-module architecture, security, concurrency, migrations, release work, or broad UI changes | Applicable build and suites, isolated harness QA, durable evidence, and review lanes when risk justifies them |
 
-This is repeated on purpose, because it is the single most ignored rule in this repo. **CHANGE A HOOK, A TOOL, AN AGENT, A FEATURE, A CONFIG SCHEMA, AN MCP, A CLI COMMAND, AN INSTALLER, A PROMPT, OR ANYTHING ELSE THAT REACHES OPENCODE OR CODEX, THEN: RUN QA, THEN RECORD EVIDENCE.** Always. Every time. No exceptions.
+### Delegation gate
 
-### OPENCODE side (`packages/omo-opencode/`): ALWAYS run the `opencode-qa` skill
+Use subagents only when all three conditions hold:
 
-1. **ALWAYS RUN THE `opencode-qa` SKILL** (`.agents/skills/opencode-qa/`) to map the EXPECTED IMPACT and the FULL CHANGE SCOPE of your edit BEFORE and AFTER. Pick the right case: CLI (`opencode run --format json`), server + SSE hook proof, TUI smoke, or DB inspection.
-2. **ISOLATE EVERYTHING.** Any QA that SPAWNS opencode MUST run in an isolated XDG sandbox (`XDG_DATA_HOME` / `XDG_CONFIG_HOME` / `XDG_STATE_HOME` / `XDG_CACHE_HOME` pointed at temp dirs). The bundled scripts already do this. **NEVER pollute the real `~/.local/share/opencode/opencode.db`.** PROVE isolation by comparing `SELECT count(*) FROM session` before and after.
-3. **USE tmux** for the TUI smoke (`scripts/tui-smoke.sh`) and for any interactive driving. tmux is for SMOKE (did it boot, render, accept a key); assert REAL behavior via `opencode run --format json` or the server API + SSE.
-4. **PROVE THE HOOK FIRED.** If you changed a lifecycle hook, prove the matching event hit the wire (`scripts/sse-hook-probe.sh --event <name>`). Seeing the event proves the hook would fire.
+1. At least two workstreams are genuinely independent.
+2. Each workstream is substantial enough to justify a separate context and handoff.
+3. Expected time or quality saved exceeds delegation, waiting, and integration overhead.
 
-### CODEX side (`packages/omo-codex/`): ALWAYS run the `codex-qa` skill
+If any condition is uncertain, work locally. A Standard task normally uses zero subagents and should not exceed two active children. Do not delegate a single lookup, a routine file read, a small edit, or ordinary validation.
 
-1. **ALWAYS RUN THE `codex-qa` SKILL** (`.agents/skills/codex-qa/`) to map the EXPECTED IMPACT and the FULL CHANGE SCOPE of your edit BEFORE and AFTER. It exercises ONLY our plugin in strict isolation — an isolated `CODEX_HOME` + a LOCAL mock model (no real API call) — so the real `~/.codex` is NEVER read or written. NEVER QA against your real `~/.codex`; NEVER the published package.
-2. **PROVE THE HOOK FIRED, FIRST-PARTY.** The skill drives the real `codex app-server` and asserts `hook/started` / `hook/completed` notifications for our components (`scripts/app-server-drive.sh --plugin`). Deterministic per-component checks: `scripts/hook-unit-probe.sh`. Installer + `config.toml` landing: `scripts/install-verify.sh`. tmux TUI smoke: `scripts/tui-smoke.sh`. Each script ships a `--self-test`.
-3. **RUN THE CODEX GATE:** `bun run test:codex` (installer + config migration + plugin component suite). This is the hermetic UNIT gate; it does NOT prove a live session — the `codex-qa` skill does.
-4. **CONFIRM THE REAL `~/.codex/config.toml` WAS NOT TOUCHED** — every `codex-qa` script asserts this automatically (shasum before/after).
+### Harness QA routing
 
-### EVIDENCE: record it under `.omo/evidence/` or it DID NOT HAPPEN
+- Pure prose changes to rules or skills do not require live harness QA or tests that pin wording. Verify parsing, packaging, and source-to-bundle synchronization.
+- Codex installer, config, hook, or live-session behavior uses the narrow matching route from `.agents/skills/codex-qa/`. Installer changes use `install-verify.sh`; hook wiring uses the unit probe and app-server driver. Run `bun run test:codex` for Deep or release-impacting Codex changes.
+- OpenCode runtime changes use the narrow matching route from `.agents/skills/opencode-qa/`. Prove lifecycle events only when hook behavior changed.
+- Visual changes follow scoped visual QA: affected routes and states for localized work, full in-scope coverage and independent review for significant or reference-fidelity work.
 
-**WRITE EVERY QA ARTIFACT TO `.omo/evidence/<YYYYMMDD>-<short-slug>/`** (the existing evidence dir; one subfolder per change, keep it ORGANIZED). For EVERY change you MUST record reviewer-readable plain files:
-- **WHAT WAS TESTED:** the command or manual action, the surface driven, and the behavior it was meant to prove.
-- **WHAT WAS OBSERVED:** the before/after or new behavior, isolation proof such as unchanged session counts, and the artifact path for the exact captured output.
-- **WHY IT IS ENOUGH:** how the evidence covers the intended behavior and remaining regression risk.
-- **WHAT WAS OMITTED:** redact or summarize raw secret-bearing logs, env dumps, tokens, auth headers, and private credentials instead of copying them.
+Any QA that launches OpenCode or Codex must use isolated XDG directories or an isolated `CODEX_HOME`. Never point tests at the user's real state. Record durable artifacts under `.omo/evidence/` for Deep changes, releases, requested audits, or when the output is needed for later review. Redact secrets and personal data.
 
-**NO EVIDENCE FILE == NO QA == NO COMMIT == NO PUSH.** ALWAYS. EVERY TIME. NO EXCEPTIONS.
+### Planning and delivery
 
-## MANDATORY CHANGE-EXECUTION PROTOCOL. EVERY USER-ORDERED PATCH FOLLOWS THIS. NO EXCEPTIONS.
-
-> **THE MOMENT A TASK REQUIRES PRODUCING A PATCH THAT MODIFIES THIS REPOSITORY, AND THE USER HAS EXPLICITLY INSTRUCTED THAT MODIFICATION, THIS PROTOCOL IS LAW. IT IS NOT A SUGGESTION. IT IS NOT OPTIONAL. THERE IS NO "TOO SMALL TO BOTHER", NO "JUST THIS ONCE", NO "I ALREADY KNOW THE CODEBASE". YOU RUN EVERY STEP, IN ORDER, EVERY SINGLE TIME.**
-
-1. **EXPLORE.** MAP the code you are about to touch BEFORE editing a single line: read the real files, trace the call paths, measure the blast radius. NEVER patch from memory.
-2. **MAKE A PLAN.** Write the full plan down BEFORE the first edit: every file, every change, the verification for each. NO PLAN ON DISK MEANS YOU DO NOT START.
-3. **ADD TODOS IN ULTRA-DETAIL.** Mirror EVERY atomic step of the plan into the todo list: one todo per edit-plus-verification unit. Vague todos like "implement feature" are FORBIDDEN.
-4. **MAKE A NEW WORKTREE.** ALL implementation happens in a fresh, task-owned git worktree. NEVER edit the main checkout in place, NEVER hand-commit to `dev`.
-5. **MAKE A PR AND WORK UNTIL IT GETS MERGED.** Open a reviewer-readable PR and STAY ON IT until it is MERGED: fix CI, answer review, re-run QA, resolve conflicts via `smart-rebase`. AN UNMERGED PR IS UNFINISHED WORK.
-6. **SET A GOAL AND RUN THE ULW LOOP.** Register the goal with binding success criteria and drive the work through the `ulw-loop`: evidence-bound, failing-first, real-surface QA. "IT SHOULD WORK" IS NOT EVIDENCE.
-7. **MANAGE THE TODO LIST OBSESSIVELY.** Mark a step in progress the instant it begins, done the instant it finishes, append new steps the moment they surface. THE TODO LIST NEVER LAGS REALITY. EVER.
-
-## DEFAULT WORKFLOW — how to take on any task
-
-Unless the user EXPLICITLY says otherwise, or the task is an urgent must-fix-now hotfix, deliver every change through the **`work-with-pr`** skill: it works in an isolated git worktree, implements with evidence-bound manual QA, opens a reviewer-readable English PR (what changed, why, observed behavior, QA/evidence, residual risk), runs the verification loop, and merges. Do NOT hand-commit normal work straight to `dev`.
-
-- **QA is the evidence gate, scoped to what you touched.** A change under `packages/omo-opencode/` MUST run the **`opencode-qa`** skill; a change under `packages/omo-codex/` (lazycodex) MUST run the **`codex-qa`** skill (see the QA section above for each). Run the matching skill, and treat its captured output (written under `.omo/evidence/`) as the QA evidence `work-with-pr` requires. A change touching both runs both.
-- **Conflicts → `smart-rebase`.** If the worktree branch conflicts with its base, resolve it with the **`smart-rebase`** skill, then re-run the scoped QA. Never hand-resolve by force-pushing shared history.
-- **Merge → merge commit, ALWAYS.** Land the PR with a merge commit per **PR MERGE POLICY** below. NEVER squash-merge or rebase-merge, even if a generic workflow, skill, or GitHub default suggests it.
+- Use a plan for three or more substantive dependent steps, cross-module work, or unresolved design. Skip formal planning for simple answers and known atomic edits.
+- Use a worktree when isolation protects concurrent or multi-file work. A dedicated clean clone is already isolated for a small change.
+- Use a PR for shared review, upstream contribution, or when the user asks. A direct commit and push is valid when explicitly requested and branch policy permits it.
+- Goals, ULW loops, wide fan-out, and multi-lane review are opt-in deep-work mechanisms, not defaults.
 
 ## OVERVIEW
 

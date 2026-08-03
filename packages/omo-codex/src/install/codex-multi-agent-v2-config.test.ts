@@ -40,7 +40,7 @@ describe("codex MultiAgentV2 config", () => {
     expect(content).not.toMatch(/^\s*multi_agent_v2\s*=/m)
     expect(parsed.features.multi_agent_v2).toEqual({
       usage_hint_enabled: false,
-      max_concurrent_threads_per_session: 16,
+      max_concurrent_threads_per_session: 6,
     })
   })
 
@@ -136,7 +136,7 @@ describe("codex MultiAgentV2 config", () => {
       expect(secondPass.indexOf(fixture.preservedLine)).toBe(firstPass.indexOf(fixture.preservedLine))
       expect(secondPass.split(fixture.preservedLine)).toHaveLength(2)
       expect(secondPass).toContain(fixture.preservedLine)
-      expect(secondPass).not.toMatch(/^max_concurrent_threads_per_session = 16$/m)
+      expect(secondPass).not.toMatch(/^max_concurrent_threads_per_session = 6$/m)
       if (fixture.name === "root-qualified dotted cap key") expect(secondPass).not.toContain("[features]")
     })
   }
@@ -169,7 +169,7 @@ describe("codex MultiAgentV2 config", () => {
     const content = await readFile(configPath, "utf8")
     const parsed = parseToml(content)
     expect(content).toContain("max_concurrent_threads_per_session = 7")
-    expect(parsed.features.multi_agent_v2.max_concurrent_threads_per_session).toBe(16)
+    expect(parsed.features.multi_agent_v2.max_concurrent_threads_per_session).toBe(6)
   })
 
   test("#given V2 section multiline value contains a cap lookalike #when updating config #then writes the absent default", async () => {
@@ -198,7 +198,7 @@ describe("codex MultiAgentV2 config", () => {
 
     // then
     const parsed = parseToml(await readFile(configPath, "utf8"))
-    expect(parsed.features.multi_agent_v2.max_concurrent_threads_per_session).toBe(16)
+    expect(parsed.features.multi_agent_v2.max_concurrent_threads_per_session).toBe(6)
   })
 
   test("#given root-dotted features and string lookalikes #when updating config #then replaces the semantic flag only", async () => {
@@ -324,7 +324,7 @@ describe("codex MultiAgentV2 config", () => {
     expect(content).not.toMatch(/^\s*multi_agent_v2\s*=/m)
     expect(parsed.features.multi_agent_v2).toEqual({
       enabled: false,
-      max_concurrent_threads_per_session: 16,
+      max_concurrent_threads_per_session: 6,
     })
   })
 })

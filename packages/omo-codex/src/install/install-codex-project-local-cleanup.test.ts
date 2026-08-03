@@ -131,7 +131,7 @@ describe("install-codex project-local cleanup", () => {
     expect(result.projectCleanup.configPath).toBeNull()
     expect(result.projectCleanup.changed).toBe(false)
     const content = await readFile(globalConfigPath, "utf8")
-    expect(content).toContain("max_threads = 1000")
+    expect(content).toContain("max_threads = 6")
     expect(content).not.toContain("max_threads = 12")
     expect(content).toContain("max_depth = 5")
   }, { timeout: 30_000 })

@@ -59,37 +59,13 @@ Before touching any UI code, before routing to any reference, before even thinki
 **Do not proceed to product screens until `DESIGN.md` exists, Section 5 names the reusable primitives and their states, and each primitive plus required state passes mobile/tablet/desktop visual QA in a component showcase or equivalent state harness.** Skipping this gate ships ad-hoc-styled product screens and re-enters the redesign loop.
 
 
-## Phase 0.5 — React Dev Tooling Gate (MANDATORY for React projects)
+## Phase 0.5 — React Dev Tooling Check (when it materially helps)
 
-If the project ships React (`react` in `package.json`), three dev-only tools are installed by default before any UI implementation. The user opts out, not in.
+For substantial React work, inspect whether `react-grab`, `react-scan`, or `react-doctor` is already part of the repository and reuse the tools relevant to the task. Do not add three dev dependencies as a prerequisite for a localized UI edit.
 
-### Check: are react-grab, react-scan, react-doctor wired?
+Install or wire these tools only when the user asks for tooling setup, the work is broad or performance-focused enough to benefit, and adding dependencies is within scope. Read `react-dev-tooling-skill.md` before doing so, and keep runtime tooling behind `process.env.NODE_ENV === 'development'` or `import.meta.env.DEV` so it cannot leak to production.
 
-Grep the entry file (`app/layout.tsx`, `pages/_document.tsx`, `src/main.tsx`, `src/index.tsx`, `app/root.tsx`) for `react-grab` and `react-scan`. Check `package.json` and the skills directory for `react-doctor` traces.
-
-#### If NO → INSTALL THEM NOW
-
-Run from project root:
-
-```bash
-npx grab@latest init                    # react-grab — UI element → AI source context
-npx react-doctor@latest install         # react-doctor — agent-skill install + static scan
-npx react-scan@latest init              # react-scan — render highlighter
-```
-
-All three CLIs auto-detect the framework and gate the runtime tools on `process.env.NODE_ENV === 'development'` / `import.meta.env.DEV`. **Read `react-dev-tooling-skill.md`** for manual install snippets per framework (Next.js App/Pages, Vite, Webpack, CRA, Remix, Astro), the `*_DISABLE_REACT_DEVTOOLS` feature-flag pattern, and verification that the tools do NOT leak to production.
-
-#### If YES → CONFIRM THE DEV GATE
-
-Open the entry file. Each tool must sit behind a `NODE_ENV === 'development'` or `import.meta.env.DEV` check. If not, fix the gate before proceeding — the rest of this skill assumes these tools never reach production.
-
-### Skip ONLY when
-
-- The project is not React (Solid / Svelte / Vue / Qwik / vanilla).
-- The user said "no extra dev dependencies".
-- The project is a React library (no entry file to inject into). Static scan via react-doctor still applies.
-
-**This gate is non-negotiable for React projects.** No dev tooling = the agent flies blind on render perf and gets 2× slower edit cycles. Period.
+If the tools are absent and not justified by scope, continue with the repository's existing browser, test, and profiling surfaces. Missing optional instrumentation is not a blocker.
 
 
 ## Routing decision flow
@@ -236,16 +212,16 @@ Once references are loaded, before writing any UI code:
 | "Panel won't scroll / footer pushed off-screen / mobile overflow" | Add `layout-skill.md` to current stack |
 | "Add micro-interactions / animate this / make it feel alive" | Add `interaction-skill.md` to current stack |
 
-## Phase Final — Design QA (MANDATORY, runs after implementation)
+## Phase Final — Risk-scoped Design QA
 
-Before declaring the task done, verify the rendered UI. **The verification authority is `/visual-qa`, not a hand-rolled checklist here.** Run `/visual-qa`: it captures every page and breakpoint (375 / 768 / 1280px) on fresh evidence, drives and inspects interaction states (hover/focus/active) and motion (transitions, scroll-triggered, load), runs the dual-oracle pass, and loops until an independent reviewer passes. For a concrete reference or clone, run it in reference-fidelity mode.
+Before declaring UI implementation done, verify the affected rendered surface. Use `/visual-qa` with the tier that matches the change: a localized edit captures only affected routes, viewports, and states and can be self-reviewed; significant redesigns, releases, and concrete-reference work justify broader breakpoint coverage and independent review. For a concrete reference or clone, use reference-fidelity mode on the pages and states included in the requested scope.
 
 This skill adds only the design-taste judgments `/visual-qa` cannot make for you:
 
 1. **Two kinds of failure count equally — fix both, then re-check.** Defects: clipping, wrong font, missing state, jank. Flatness: a surface that reads generic next to the loaded reference. When the render is bug-free but flat, you are NOT done — RAISE the design: deepen the material layering, give the color a real perceptual ramp (multiple stops / OKLCH, not one tint at varied opacity), render the hero focal object as real dimensional material (a generated bitmap, or real light/shadow/gradient/depth — never flat geometric primitives), and add the one signature moment. Patching only bugs while the surface stays at the floor is the single most common way this skill ships clean-but-generic work.
 2. **Motion serves meaning; slop animation is forbidden.** Every interactive element must communicate its affordance and state changes — but a hover that changes nothing, motion on a non-interactive element, or a decorative micro-animation with no informational purpose is slop. Do not add it, and treat any you find as a defect. The hero may carry one signature moment; the rest of the surface earns motion only where it signals interaction or state.
 
-Report "done" only when `/visual-qa` has passed on fresh evidence AND neither a visual bug nor a floor-level or slop-laden surface remains.
+Report "done" when the applicable `/visual-qa` tier has passed on fresh evidence and neither a visual bug nor a floor-level or slop-laden surface remains in the affected scope.
 
 
 ## Final notes

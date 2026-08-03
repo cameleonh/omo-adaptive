@@ -58,18 +58,17 @@ test("#given SessionStart migration sees an inline-commented V2 cap #when migrat
 	const secondResult = await migrateConfigFile(configPath);
 
 	const secondPass = await readFile(configPath, "utf8");
-	assert.equal(firstResult.changed, true);
+	assert.equal(firstResult.changed, false);
 	assert.equal(secondResult.changed, false);
 	assert.equal(secondPass, firstPass);
 	assert.match(
 		secondPass,
 		/usage_hint_enabled = false\nmax_concurrent_threads_per_session = 7 # user cap\nshow_tool_use = false/,
 	);
-	assert.match(secondPass, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.match(secondPass, /\[agents\][\s\S]*?max_threads = 6/);
 	assert.match(secondPass, /max_depth = 4/);
 	assert.match(secondPass, /\[agents\.explorer\]\nconfig_file = "\.\/agents\/explorer\.toml"/);
 	assert.match(secondPass, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
-	assert.doesNotMatch(secondPass, /^max_threads\s*=\s*6$/m);
 });
 
 for (const header of [
@@ -157,7 +156,7 @@ for (const fixture of [
 		assert.equal(secondResult.changed, false);
 		assert.equal(secondPass, firstPass);
 		assert.match(secondPass, new RegExp(fixture.preservedLine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-		assert.doesNotMatch(secondPass, /^max_concurrent_threads_per_session = 16$/m);
+		assert.doesNotMatch(secondPass, /^max_concurrent_threads_per_session = 6$/m);
 		if (fixture.name === "root-qualified dotted cap key") {
 			assert.equal(parsed.features.multi_agent_v2.enabled, false);
 		}
@@ -184,7 +183,7 @@ test("#given multiline string contains V2 cap lookalikes #when SessionStart migr
 	const parsed = parseTomlWithPython(content);
 
 	assert.match(parsed.notes, /max_concurrent_threads_per_session = 7/);
-	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 16);
+	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 6);
 });
 
 test("#given V2 section multiline value contains a cap lookalike #when SessionStart migrates #then writes the absent default", async () => {
@@ -205,7 +204,7 @@ test("#given V2 section multiline value contains a cap lookalike #when SessionSt
 	await migrateConfigFile(configPath);
 	const parsed = parseTomlWithPython(await readFile(configPath, "utf8"));
 
-	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 16);
+	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 6);
 });
 
 test("#given V2 root-dotted disable and cap #when gpt-5.6 SessionStart migrates #then removes disable and V1 agents cap", async () => {
@@ -329,7 +328,7 @@ test("#given SessionStart config migration has no V2 cap #when migrating #then w
 	await migrateConfigFile(configPath);
 
 	const content = await readFile(configPath, "utf8");
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
 	assert.doesNotMatch(content, /max_concurrent_threads_per_session = 1000/);
 });
 
@@ -346,21 +345,21 @@ test("#given config without any model #when migrating #then does not introduce a
 	const content = await readFile(configPath, "utf8");
 	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
 	assert.match(content, /max_depth = 4/);
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
 });
 
-test("#given config without any model but an existing low cap #when migrating #then still raises the existing cap", async () => {
+test("#given config without any model but an existing low cap #when migrating #then applies the managed cap", async () => {
 	const root = await mkdtemp(join(tmpdir(), "lazycodex-subagent-limit-no-model-raise-"));
 	const configPath = join(root, "config.toml");
 	await writeFile(
 		configPath,
-		['model_reasoning_effort = "high"', "", "[agents]", "max_threads = 6", "max_depth = 4", ""].join("\n"),
+		['model_reasoning_effort = "high"', "", "[agents]", "max_threads = 2", "max_depth = 4", ""].join("\n"),
 	);
 
 	await migrateConfigFile(configPath, { env: { CODEX_HOME: root } });
 
 	const content = await readFile(configPath, "utf8");
-	assert.match(content, /max_threads = 1000/);
-	assert.doesNotMatch(content, /max_threads = 6/);
+	assert.match(content, /max_threads = 6/);
+	assert.doesNotMatch(content, /max_threads = 2/);
 	assert.match(content, /max_depth = 4/);
 });

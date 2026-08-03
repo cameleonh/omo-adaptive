@@ -1,10 +1,10 @@
-# Phase 4 — Oracle Triple Consultation
+# Phase 4 — Scoped Oracle Consultation
 
-At 2 consecutive failed hypothesis rounds, stop investigating and reframe. Continuing past two failures usually means the real cause is in a category you haven't imagined — and more time on your current mental model is wasted time.
+After 2 materially different failed hypothesis rounds, pause and decide whether an independent framing would expose a blind spot. Continuing unchanged is wasteful; automatically spawning several reviewers is also wasteful.
 
-The Oracle Triple is how you break out of the mental box.
+Start with one Oracle using the framing most likely to challenge the current evidence. Add another framing only when the first leaves a specific, orthogonal ambiguity that runtime evidence cannot resolve cheaply.
 
-> ⚠️ **Wrong tool for non-debugging tasks.** The Triple is for *stuck root-cause hunts*. If your task is producing an artifact (extraction, reverse engineering, audit, compliance documentation) and you want a skeptical review before declaring it done, use the **Verification Oracle** pattern in [partial-runtime-evidence.md](partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks). Running the Triple on a finished extraction returns three diverging "what if you tried…" tangents that are not what you need.
+> **Wrong tool for routine verification.** This consultation is for a stuck root-cause hunt. If the task is a high-risk extraction, reverse-engineering result, audit, or compliance artifact that needs independent review, use the scoped **Verification Oracle** pattern in [partial-runtime-evidence.md](partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks). Ordinary implementation and validation do not need an Oracle.
 
 ---
 
@@ -13,28 +13,26 @@ The Oracle Triple is how you break out of the mental box.
 | Situation | Invoke? |
 |---|---|
 | 1 round failed, you have new distinguishing evidence | No — run one more round with a refined hypothesis set |
-| 2 rounds failed, hypotheses now feel like variations of each other | **Yes — invoke now** |
-| 2 rounds failed, no new evidence angles left to try | **Yes — invoke now** |
-| You've been investigating >2 hours on the same bug | **Yes — invoke now regardless of round count** |
+| 2 materially different rounds failed and one framing could expose a blind spot | **Yes — invoke one** |
+| 2 rounds failed but a cheap decisive runtime query remains | No — run the query first |
+| You've been investigating >2 hours on the same bug | Consider one if its expected value exceeds the handoff cost |
 | 1 round failed but the user is watching and wants speed | No — one round isn't enough to justify Oracle cost. Resist the urge. |
 
 ---
 
-## Why three Oracles, and why *orthogonal* framings
+## Choose an orthogonal framing
 
-A single Oracle call returns a single coherent analysis. Coherent analyses tend to inherit the framing of the prompt, which means they inherit the same blind spots the investigator already has. Three Oracles with *orthogonal framings* force the analyses to diverge, and the places where they agree across frames is where the real signal lives.
-
-The three framings below are chosen to cover distinct bug-cause categories:
+An Oracle can inherit the framing of its prompt, so choose the frame that most directly challenges the current blind spot. The three options below cover distinct bug-cause categories:
 
 - **A (obvious-but-missed)** — embarrassingly simple causes the investigator walked past.
 - **B (system-boundary)** — causes living at integration seams, not in the code being read.
 - **C (invariant-violation)** — assumptions load-bearing to current hypotheses that may themselves be false.
 
-Spawn all three in parallel.
+Invoke one initially. A second or third call is justified only when its question is genuinely orthogonal, the remaining uncertainty is consequential, and the evidence cannot answer it more cheaply. Never spawn all three merely because the prompt library contains three.
 
 ---
 
-## The three prompts
+## Prompt library (choose the smallest applicable set)
 
 ```
 task(subagent_type="oracle", load_skills=[], run_in_background=true,
@@ -81,11 +79,11 @@ task(subagent_type="oracle", load_skills=[], run_in_background=true,
 
 ---
 
-## Synthesizing across three Oracles
+## Synthesizing Oracle evidence
 
-**Do not pick the highest-ranked candidate from a single Oracle.** That defeats the purpose of getting three framings.
+Treat an Oracle response as a source of hypotheses and discriminating queries, not as proof. Runtime evidence still decides the cause.
 
-Instead, walk the outputs in this order:
+When more than one framing was justified, synthesize them in this order:
 
 ### 1. Agreement scan
 
@@ -99,22 +97,20 @@ Note where Oracles disagree. Disagreement is genuine uncertainty that runtime ev
 
 Framing C produces concrete "one query that would decide it" suggestions. Pull these verbatim into your new round's evidence-gathering plan — they are designed to be decisive.
 
-### 4. Build the new hypothesis set
+### 4. Build the next hypothesis set
 
-Minimum 3, same rules as Phase 2. Aim to have hypotheses drawn from the agreement scan (likely cause) AND from the disagreement scan (so one round's evidence resolves the disagreement).
+Use the smallest set that covers the live ambiguity, following Phase 2. Prefer the agreement scan for the leading cause and add a disagreement candidate only when one observation can distinguish it.
 
 Record in the journal:
 
 ```markdown
-## Oracle Triple — Round <N>
+## Oracle Consultation — Round <N>
 - Invoked at: <ISO timestamp>
-- Framing A summary: <top 3 candidates, one line each>
-- Framing B summary: <top 3 candidates>
-- Framing C summary: <5 load-bearing assumptions + falsification queries>
+- Framing(s) used: <A, B, or C and why each was worth the cost>
+- Candidate causes: <ranked list with the observation that would distinguish each>
 
-### Cross-framing agreement
-- <candidate> appeared in A + B
-- <candidate> appeared in B + C
+### Cross-framing agreement (only if multiple calls ran)
+- <candidate> appeared in <frames>
 
 ### New hypothesis set
 1. <hypothesis> — evidence to gather: <one-liner>
@@ -123,14 +119,12 @@ Record in the journal:
 
 ### 5. Reset the counter
 
-Reset the "consecutive failed rounds" counter to 0. Return to Phase 3 (parallel investigation) with the new set.
+Reset the "consecutive failed rounds" counter to 0. Return to Phase 3, working locally unless the investigations independently pass the delegation gate.
 
 ---
 
-## If *another* 2 rounds fail after the Oracle Triple
+## If another 2 materially different rounds fail
 
 You are genuinely stuck. This is the escalation threshold.
 
-Escalate to the user (see `05-escalate.md`) with the full trace: every hypothesis tried, every piece of evidence captured, both Oracle syntheses. Do not guess a fix.
-
-This is rare — in practice, the Oracle Triple resolves almost all stuck debugging sessions within one round, because it pulls in framings the investigator was too close to the code to see.
+Use `05-escalate.md` when progress now requires a user decision, new authority, or unavailable evidence. Carry the concise trace of hypotheses, observations, and any Oracle framing used. Do not guess a fix or add more reviewers without a new independent question.

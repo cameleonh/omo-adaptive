@@ -31,7 +31,7 @@ test("#given empty Codex config #when script installer updates config #then sets
 	assert.match(config, /\[features\.multi_agent_v2\]/);
 	const v2Section = multiAgentV2Section(config);
 	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 16/);
+	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
 });
 
 test("#given queue multi-agent mode #when script installer updates config #then removes unsupported root key", async () => {
@@ -337,7 +337,7 @@ test("#given empty Codex config #when script installer updates config #then sets
 	const config = await readFile(configPath, "utf8");
 	const v2Section = config.slice(config.indexOf("[features.multi_agent_v2]"));
 	assert.doesNotMatch(config, /^\s*max_threads\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 16/);
+	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
 	assert.doesNotMatch(v2Section, /hide_spawn_agent_metadata/);
 });
 
@@ -404,7 +404,7 @@ test("#given legacy boolean MultiAgentV2 flag and table #when script installer u
 	const v2Section = multiAgentV2Section(config);
 	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
 	assert.match(v2Section, /usage_hint_enabled = false/);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 16/);
+	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
 });
 
 test("#given legacy boolean MultiAgentV2 flag false #when script installer updates config #then normalizes to a disabled table config", async () => {
@@ -440,7 +440,7 @@ test("#given legacy boolean MultiAgentV2 flag false #when script installer updat
 	assert.match(config, /\[features\.multi_agent_v2\]/);
 	const disabledV2Section = multiAgentV2Section(config);
 	assert.match(disabledV2Section, /^enabled = false$/m);
-	assert.match(disabledV2Section, /^max_concurrent_threads_per_session = 16$/m);
+	assert.match(disabledV2Section, /^max_concurrent_threads_per_session = 6$/m);
 });
 
 test("#given legacy agents max_threads #when script installer updates config #then raises the root subagent thread cap", async () => {
@@ -476,9 +476,9 @@ test("#given legacy agents max_threads #when script installer updates config #th
 	assert.match(config, /\[features\.multi_agent_v2\]/);
 	const v2Section = multiAgentV2Section(config);
 	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 16/);
+	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
 	assert.match(config, /\[agents\]/);
-	assert.match(config, /max_threads = 1000/);
+	assert.match(config, /max_threads = 6/);
 	assert.doesNotMatch(config, /max_threads = 16/);
 	assert.match(config, /max_depth = 4/);
 	assert.match(config, /job_max_runtime_seconds = 3600/);
@@ -517,7 +517,7 @@ test("#given managed agent role sections #when script installer updates config #
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	assert.match(config, /max_threads = 1000/);
+	assert.match(config, /max_threads = 6/);
 	assert.doesNotMatch(config, /max_threads = 16/);
 	assert.match(config, /\[agents\.explorer\]/);
 	assert.match(config, /description = "read-only explorer"/);

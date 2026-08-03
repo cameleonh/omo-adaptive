@@ -241,9 +241,9 @@ test("#given user-customized Codex model config #when migrating #then user value
 	assert.match(content, /model_reasoning_effort = "medium"/);
 	assert.match(content, /plan_mode_reasoning_effort = "medium"/);
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
-	assert.match(content, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
 	assert.match(content, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
 });
 
 test("#given managed config state is malformed #when migrating #then migration ignores stale state safely", async () => {
@@ -404,8 +404,8 @@ test("#given config already matches current catalog #when catalog version advanc
 	assert.equal(state.files[configPath].catalogVersion, "test.role-only");
 	const content = await readFile(configPath, "utf8");
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
-	assert.match(content, /\[agents\][\s\S]*?max_threads = 1000/);
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
+	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
 });
 
 test("#given stale Context7 placeholder MCP config #when migrating #then removes it and keeps plugin policy", async () => {
@@ -642,8 +642,8 @@ test("#given global config without multi_agent_v2 section #when full migration r
 	assert.deepEqual(result.modeChanged, []);
 	const content = await readFile(configPath, "utf8");
 	assert.match(content, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
-	assert.match(content, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
+	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
 });
 
@@ -750,7 +750,7 @@ test("#given global config with forced multi_agent_v2 #when full migration runs 
 	assert.match(content, /enabled = false/);
 	assert.doesNotMatch(content, /enabled = true/);
 	assert.match(content, /max_concurrent_threads_per_session = 10000/);
-	assert.match(content, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
 });
 
 test("#given enabled = true with an inline comment #when forcing disable #then flips to false and preserves the comment", () => {
@@ -1030,7 +1030,7 @@ test("#given legacy shorthand and no session model on hook path #when full migra
 	const parsed = parseTomlWithPython(content);
 	assert.doesNotMatch(content, /^\s*multi_agent_v2\s*=\s*(?:true|false)/m);
 	assert.equal(parsed.features.plugins, true);
-	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 16);
+	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 6);
 	assert.equal("enabled" in parsed.features.multi_agent_v2, false);
 });
 
@@ -1151,7 +1151,7 @@ test("#given user-modified config without root model #when full non-hook migrati
 	assert.doesNotMatch(content, /^\s*enabled\s*=\s*false/m);
 	assert.doesNotMatch(content, /openai\/codex#26753/);
 	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
-	assert.match(content, /max_concurrent_threads_per_session = 16/);
+	assert.match(content, /max_concurrent_threads_per_session = 6/);
 });
 
 async function canCreateSymlink(type) {
@@ -1211,7 +1211,7 @@ test("#given model_catalog_json declares a v2 model as v1 #when full migration r
 
 	const content = await readFile(configPath, "utf8");
 	assert.match(content, /enabled = false/, "explicit v1 catalog must keep the managed disable");
-	assert.match(content, /max_threads = 1000/, "explicit v1 catalog must keep agents.max_threads");
+	assert.match(content, /max_threads = 6/, "explicit v1 catalog must keep the managed agents.max_threads cap");
 	assert.match(content, /max_concurrent_threads_per_session = 1000/);
 	assert.match(content, /max_depth = 2/);
 });

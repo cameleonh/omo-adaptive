@@ -13,8 +13,8 @@ import { hasTomlSetting } from "./toml-setting-reader"
 const CODEX_AGENTS_HEADER = "agents"
 const CODEX_MULTI_AGENT_V2_HEADER = "features.multi_agent_v2"
 const CODEX_MULTI_AGENT_V2_THREAD_LIMIT_KEY = `${CODEX_MULTI_AGENT_V2_HEADER}.max_concurrent_threads_per_session`
-const CODEX_SUBAGENT_THREAD_LIMIT = 1000
-const CODEX_MULTI_AGENT_V2_THREAD_LIMIT = 16
+const CODEX_SUBAGENT_THREAD_LIMIT = 6
+const CODEX_MULTI_AGENT_V2_THREAD_LIMIT = 6
 
 export type CodexMultiAgentVersion = "v1" | "v2" | null
 
@@ -26,7 +26,7 @@ export type CodexMultiAgentVersion = "v1" | "v2" | null
  * in config breaks models whose API does not support encrypted tool
  * parameters (e.g. gpt-5.5-medium, API-key-only models, third-party
  * providers).  The installer therefore sets only the v1 and v2 tuning knobs
- * so sessions keep the high subagent cap regardless of the active runtime.
+ * so sessions keep a bounded subagent cap regardless of the active runtime.
  *
  * When the selected model prefers V2 (catalog `multi_agent_version: "v2"`,
  * or a GPT-5.6 family model with the catalog unavailable), the installer
@@ -39,7 +39,7 @@ export type CodexMultiAgentVersion = "v1" | "v2" | null
  * When config.toml names no root model at all (Codex Desktop selects the
  * model in the UI), the installer never introduces `agents.max_threads`:
  * Codex rejects that key at thread/start while MultiAgentV2 is active. An
- * existing cap is still raised in place so the legacy low-cap repair keeps
+ * existing cap is still normalized in place so the managed-cap repair keeps
  * working and a hand-removed key stays removed.
  */
 export function ensureCodexMultiAgentV2Config(

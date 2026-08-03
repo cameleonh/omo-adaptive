@@ -92,9 +92,9 @@ Only cleanup directly related to the fix. Do not re-architect.
 
 If the code around the fix is rough, note it in the journal as a follow-up for the user; do not expand scope here. Refactoring during a bugfix is how one-line fixes turn into hundred-line diffs nobody can review.
 
-### 4. Regression — full suite green
+### 4. Regression — affected suite green
 
-Run the full test suite for the affected package (not just the one new test). Existing tests must still pass.
+Run the narrowest existing suite that covers the affected contract, not just the new test. Expand to the full package or repository suite when the fix crosses modules, changes shared infrastructure, is release-bound, or the repository explicitly requires it.
 
 If they don't, your "fix" broke something else. Back to Phase 6 with the new failure as evidence — usually it means the mechanism you thought you fixed was load-bearing for some other code path you didn't know about, and the "broken" test is actually pointing at a better understanding of the system.
 
@@ -110,7 +110,7 @@ This does not soften the artifact rule: every temporary `print` / `dbg!` / `cons
 ### Green phase (<ISO timestamp>)
 Fix: <file:line> — <two-line description of the change>
 Test: <path>::<name> now passes
-Full suite: <N tests, <M failures — should be 0>
+Regression scope: <command and passing result>
 ```
 
 ---

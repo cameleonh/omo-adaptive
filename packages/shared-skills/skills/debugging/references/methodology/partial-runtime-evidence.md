@@ -145,15 +145,15 @@ If you cannot achieve a complete Tier 2 capture **or** two independent non-Tier-
 
 ## Verification Oracle pattern (for non-debug tasks)
 
-The skill's main Oracle Triple (`04-oracle-triple.md`) is for **stuck debugging** — 2 failed rounds, mental box, three orthogonal framings to break out.
+The skill's scoped Oracle consultation (`04-oracle-triple.md`) is for **stuck debugging** after materially different failed rounds. It starts with one independent framing and expands only for consequential orthogonal ambiguity.
 
-For tasks where the deliverable is an **artifact, not a bug fix** (reverse engineering, extraction, audit, compliance documentation), use a different pattern: **single Oracle, late, skeptical, with the deliverable in hand**.
+For high-risk tasks where the deliverable is an **artifact, not a bug fix** (reverse engineering, extraction, audit, compliance documentation), a different pattern can apply: **single Oracle, late, skeptical, with the deliverable in hand**. Routine documentation and low-risk extraction do not need independent review.
 
 ### When to invoke
 
-- Right before declaring an extraction/audit task "done"
-- After every significant revision of the deliverable (not after every small edit)
-- Maximum 3-4 iterations before escalating to user
+- The artifact supports a consequential claim that cannot be fully checked through direct evidence
+- The user requests independent review, or the task is explicitly a release/compliance handoff
+- Once after a significant revision that invalidated the earlier review; never after every small edit
 
 ### Pattern
 
@@ -183,19 +183,19 @@ Be skeptical. Don't rubber-stamp.
 """)
 ```
 
-### Why this differs from the Oracle Triple
+### Why this differs from debugging consultation
 
-| | Oracle Triple (debug) | Verification Oracle (artifact) |
+| | Debugging consultation | Verification Oracle (artifact) |
 |---|---|---|
-| Trigger | 2 failed hypothesis rounds | About to declare "done" |
-| Count | 3 in parallel, orthogonal framings | 1 sequential, focused review |
+| Trigger | 2 materially different failed rounds with a framing blind spot | Consequential claim or explicitly requested independent review |
+| Count | 1 initially; more only for orthogonal ambiguity | 1 sequential, focused review |
 | Goal | Break out of mental box | Catch unsubstantiated claims |
 | Tone of prompt | Brainstorm wide alternatives | Skeptical audit |
 | Iteration | Reset hypothesis set after | Fix gaps, re-invoke until PASS |
 
 ### Don't conflate them
 
-If you're stuck debugging, do the Triple. If you have a deliverable and need it audited, do the Verification Oracle. Doing the Triple on a finished extraction will return three diverging "what if you tried…" tangents that are not what you need. Doing the Verification Oracle on a stuck debugging session will return a polite "the evidence is incomplete" that you already knew.
+If you're stuck debugging and direct evidence has stopped deciding the issue, use the scoped consultation. If a consequential artifact needs an independent audit, use the Verification Oracle. For ordinary work, use neither: direct, matching-surface evidence is cheaper and stronger.
 
 ---
 

@@ -1,6 +1,6 @@
-# Phase 9 + 10 — Cleanup & Final Verification
+# Phase 9 + 10 — Cleanup & Applicable Verification
 
-The working tree after the session must differ from before only by the real fix and its test. Anything else is a process failure.
+The working tree after the session should contain only the requested fix and directly related tests, documentation, or configuration. Temporary debugging artifacts must be gone.
 
 ---
 
@@ -8,7 +8,7 @@ The working tree after the session must differ from before only by the real fix 
 
 ### The walk
 
-Open the journal's "Artifacts to revert" list. Walk it top to bottom. Check each box only after the revert command succeeds and produces no error.
+If a journal was created, open its "Artifacts to revert" list. Walk it top to bottom and check each item only after its scoped cleanup succeeds. If the investigation created no journal or artifacts, skip this phase.
 
 ### Standard revert operations
 
@@ -69,8 +69,8 @@ git diff --stat
 The diff must contain **only**:
 
 1. The real fix.
-2. The new failing-first test.
-3. Nothing else.
+2. The applicable regression test, when the behavior has a suitable test seam.
+3. Directly related documentation or configuration required by the fix.
 
 ### Detector checklist — scan the diff for these
 
@@ -91,7 +91,7 @@ If `git status` shows any untracked debug file, or `git diff` shows any of the p
 
 ### Remove the journal
 
-Only once the git check is clean:
+Only once the git check is clean, and only if this investigation created the journal:
 
 ```bash
 rm .debug-journal.md
@@ -104,19 +104,19 @@ The journal is not part of the fix; it doesn't belong in the commit or in the gi
 
 ## Phase 10 — Final Verification
 
-Last gate before reporting done. All four gates must be true, and all four must have **evidence in your final message** to the user. Passing a gate without evidence is the same as failing it.
+Use only the gates that apply to the changed behavior and its consequence of failure. Report concise evidence for the checks that ran; do not manufacture work to fill every category.
 
-### The four gates
+### Applicable gates
 
-1. **Red→green toggle confirmed** — show the failing test output from before the fix and passing output after. Both outputs visible in the reply or the journal.
+1. **Behavior lock** — for a bug fix or new behavior with a suitable test seam, confirm the focused test fails without the fix and passes with it. A diagnosis-only request or untestable external condition can use captured runtime evidence instead.
 
-2. **Full test suite green** — show the suite's final pass line (e.g. `42 passed in 3.14s`). Not just the new test.
+2. **Regression scope** — run the narrowest affected suite. Add the full package or repository suite only for cross-cutting, release-bound, or repository-mandated changes.
 
-3. **Manual QA reproduced the fix** — show the command or scenario that originally failed and its now-correct output. Verbatim, not paraphrased.
+3. **Matching-surface QA** — when user-visible runtime behavior changed, rerun the original scenario or closest safe equivalent. Pure internal, prose, or configuration changes may be covered by parsing and targeted contract tests.
 
-4. **Working tree clean of debug artifacts** — show `git diff --stat` output containing only fix + test, plus `git status` clean of untracked debug files.
+4. **Artifact cleanup** — if the investigation created temporary artifacts, confirm they are gone and the diff contains only intended task changes.
 
-If any of the four lacks evidence, you have not finished — return to the appropriate phase.
+If an applicable gate lacks evidence, return to the appropriate phase. An inapplicable gate is omitted, not treated as a failure.
 
 ### Final message template
 
@@ -127,8 +127,8 @@ Fixed.
 
 **Root cause**: <one sentence — the mechanism, not the symptom>
 **Fix**: `<file:line>` — <two words>
-**Test**: `<test file>::<test name>` — red without fix, green with fix
-**QA**: <one line describing what you ran and what you saw>
+**Test**: `<test file>::<test name>` — red without fix, green with fix (when applicable)
+**QA**: <one line describing the matching-surface or contract check and what you saw>
 
 Diff:
 ```

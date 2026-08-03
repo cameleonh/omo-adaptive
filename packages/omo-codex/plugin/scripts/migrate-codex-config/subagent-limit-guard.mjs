@@ -8,8 +8,8 @@ import {
 const CODEX_AGENTS_HEADER = "[agents]";
 const CODEX_MULTI_AGENT_V2_HEADER = "[features.multi_agent_v2]";
 const CODEX_MULTI_AGENT_V2_THREAD_LIMIT_KEY = "features.multi_agent_v2.max_concurrent_threads_per_session";
-const CODEX_SUBAGENT_THREAD_LIMIT = "1000";
-const CODEX_MULTI_AGENT_V2_DEFAULT_THREAD_LIMIT = "16";
+const CODEX_SUBAGENT_THREAD_LIMIT = "6";
+const CODEX_MULTI_AGENT_V2_DEFAULT_THREAD_LIMIT = "6";
 
 /**
  * Ensure subagent concurrency limits without writing settings that conflict
@@ -21,8 +21,8 @@ const CODEX_MULTI_AGENT_V2_DEFAULT_THREAD_LIMIT = "16";
  * When no model is resolvable at all (no session model and no root `model`
  * in config.toml — Codex Desktop selects the model in the UI), never
  * introduce `agents.max_threads`: it hard-fails thread/start on
- * MultiAgentV2 sessions. An existing cap is still raised in place so the
- * legacy low-cap repair keeps working and a hand-removed key stays removed.
+ * MultiAgentV2 sessions. An existing cap is still normalized in place so the
+ * managed-cap repair keeps working and a hand-removed key stays removed.
  *
  * @param {string} config
  * @param {{ multiAgentVersion?: string | null, sessionModel?: string | null, env?: NodeJS.ProcessEnv, modelsCachePath?: string }} [options]

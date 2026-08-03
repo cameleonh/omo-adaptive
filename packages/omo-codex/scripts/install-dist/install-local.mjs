@@ -9038,8 +9038,8 @@ import { dirname as dirname7, isAbsolute as isAbsolute6, join as join18 } from "
 var CODEX_AGENTS_HEADER = "agents";
 var CODEX_MULTI_AGENT_V2_HEADER = "features.multi_agent_v2";
 var CODEX_MULTI_AGENT_V2_THREAD_LIMIT_KEY = `${CODEX_MULTI_AGENT_V2_HEADER}.max_concurrent_threads_per_session`;
-var CODEX_SUBAGENT_THREAD_LIMIT = 1000;
-var CODEX_MULTI_AGENT_V2_THREAD_LIMIT = 16;
+var CODEX_SUBAGENT_THREAD_LIMIT = 6;
+var CODEX_MULTI_AGENT_V2_THREAD_LIMIT = 6;
 function ensureCodexMultiAgentV2Config(config, options = {}) {
   const featureFlag = removeFeatureFlagSetting(config, "multi_agent_v2");
   const v2Preferred = options.multiAgentVersion === "v2";

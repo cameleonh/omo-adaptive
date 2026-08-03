@@ -1,6 +1,6 @@
 ---
 name: debugging
-description: "MUST USE for any real runtime debugging across ANY language or binary — crashes, silent failures, wrong responses, stuck processes, memory leaks, async misbehavior, unexplained timing, reverse engineering. Runs a hypothesis-driven loop: form ≥3 hypotheses, investigate in parallel, after 2 failed rounds spawn Oracles from orthogonal angles, confirm root cause, lock with a failing test, fix minimally, QA by actually USING the system, scrub artifacts. The actual HOW lives in `references/` — READ THEM. Triggers: 'debug this', 'why is X not working', 'hanging', 'attach a debugger', 'reverse engineer', 'pwndbg', 'gdb', 'lldb', 'node inspect', 'pdb', 'dlv', 'delve', 'rust-gdb', 'set a breakpoint', 'context window exploded', 'why is the response empty', 'why is this happening', 'trace this bug', 'reproduce and fix', 'silent failure', 'HTTP 200 but empty', 'why did it stop', 'inspect the binary', 'playwright', 'flaky test', 'fails intermittently', 'passes in isolation', 'only fails in CI'."
+description: "Use for runtime debugging that needs reproduction, observation, or a fix: crashes, silent failures, wrong responses, stuck processes, leaks, async or timing bugs, flaky tests, and binary inspection. Start with the smallest discriminating observation, expand hypotheses only when ambiguity warrants it, and parallelize only substantial independent investigations. Load the exact runtime or tool references used by the investigation."
 ---
 
 # Debugging
@@ -8,17 +8,17 @@ description: "MUST USE for any real runtime debugging across ANY language or bin
 You are a hypothesis-driven debugger. Two disciplines apply regardless of language, runtime, or whether you have source:
 
 1. **Runtime truth beats code reading.** Every claim about why the bug happens must come from observed state — never from a plausible story spun from reading code.
-2. **Leave no trace.** Debugging creates artifacts. Every artifact is journaled and removed before you call the task done.
+2. **Leave no trace.** Journal and remove temporary artifacts when the investigation actually creates them; do not create a journal for a read-only inspection with no artifacts.
 
 The rest of this file is a map. **The knowledge is in `references/`.** This file cannot teach you how to debug — it can only tell you which reference will, for your exact situation.
 
 ---
 
-# 🚨 READ THE REFERENCES. THIS IS NOT OPTIONAL.
+# Read the references that match the investigation
 
 > **This skill is intentionally small.** Ninety percent of what you need to know lives in `references/`. If you skim this file and start working without opening the references, you will reattach a debugger the wrong way, miss a silent-failure pattern you've never seen before, waste an hour on a source-map gotcha, or invent a worse version of a tool that already solves your problem.
 >
-> **Every reference below is mandatory when its scenario applies.** "I know this language" is not an exemption. The references exist because every runtime and every specialist tool has at least one gotcha that silently wastes hours, and you will not know which gotcha until you read the file.
+> Load a reference before using commands from its runtime or specialist-tool domain. A narrow deterministic bug that does not require attaching a debugger does not justify loading unrelated references.
 >
 > **The gate rule**: before you run a command from a given reference's domain, you must have read that reference in this session. Re-reading across sessions is cheap. Guessing is expensive.
 
@@ -65,16 +65,16 @@ Each phase has exactly one reference. Read it as you enter the phase — not in 
 | # | Phase | 📖 Open this when entering |
 |---|---|---|
 | 0 | **Environment assessment** — know the runtime, ports, symbols, env vars, watchers before attaching | [references/methodology/00-setup.md](references/methodology/00-setup.md) |
-| 1 | **Journal setup** — single `.debug-journal.md` tracks every artifact for guaranteed revert | [references/methodology/00-setup.md](references/methodology/00-setup.md) |
-| 2 | **Hypothesis formation** — minimum three, across orthogonal axes, each with distinguishing evidence | [references/methodology/02-investigate.md](references/methodology/02-investigate.md) |
-| 3 | **Parallel investigation** — team mode `debug-squad` when enabled, async subagents otherwise | [references/methodology/02-investigate.md](references/methodology/02-investigate.md) |
-| 4 | **Oracle Triple** — after 2 consecutive failed rounds, spawn three Oracles with orthogonal framings and synthesize | [references/methodology/04-oracle-triple.md](references/methodology/04-oracle-triple.md) |
+| 1 | **Journal setup when needed** — use one `.debug-journal.md` only when the investigation creates temporary artifacts | [references/methodology/00-setup.md](references/methodology/00-setup.md) |
+| 2 | **Hypothesis formation** - start with the strongest falsifiable hypothesis; add orthogonal alternatives when the evidence is ambiguous | [references/methodology/02-investigate.md](references/methodology/02-investigate.md) |
+| 3 | **Investigation** - work locally by default; parallelize only substantial independent hypotheses that pass the delegation gate | [references/methodology/02-investigate.md](references/methodology/02-investigate.md) |
+| 4 | **Oracle escalation** - after 2 materially different failed rounds, ask one independent Oracle; add more only if the remaining ambiguity is genuinely orthogonal | [references/methodology/04-oracle-triple.md](references/methodology/04-oracle-triple.md) |
 | 5 | **User decision escalation** — only when evidence exhausted and the call has policy implications | [references/methodology/05-escalate.md](references/methodology/05-escalate.md) |
 | 6 | **Root cause confirmation** — confirmed only when toggling the suspected cause toggles the bug | [references/methodology/06-fix.md](references/methodology/06-fix.md) |
 | 7 | **TDD fix** — red test first, minimal green, no scope expansion | [references/methodology/06-fix.md](references/methodology/06-fix.md) |
-| 8 | **Manual QA** — actually use the system (tmux for CLI, Playwright for browser, real curl for API, real repro for binary) | [references/methodology/08-qa.md](references/methodology/08-qa.md) |
-| 9 | **Cleanup** — walk the journal, revert every artifact, verify `git diff` shows only fix + test | [references/methodology/09-cleanup.md](references/methodology/09-cleanup.md) |
-| 10 | **Final verification** — four evidence gates before declaring done | [references/methodology/09-cleanup.md](references/methodology/09-cleanup.md) |
+| 8 | **Matching-surface QA** - after a behavior fix, reproduce the original user scenario; a diagnosis-only request may stop after evidence and reporting | [references/methodology/08-qa.md](references/methodology/08-qa.md) |
+| 9 | **Cleanup** — when a journal exists, revert every temporary artifact and inspect the resulting diff | [references/methodology/09-cleanup.md](references/methodology/09-cleanup.md) |
+| 10 | **Final verification** — apply only the behavior-lock, regression, matching-surface, and cleanup gates relevant to the change | [references/methodology/09-cleanup.md](references/methodology/09-cleanup.md) |
 
 **Phase references are short by design.** Reading one takes a minute. Skipping one costs an hour.
 
@@ -86,7 +86,7 @@ These are not phases — read them when the situation calls for them:
 |---|---|
 | The failure is intermittent — fails sometimes, a different test each run, passes in isolation, or only fails in CI | 📖 **[references/methodology/03-flaky-triage.md](references/methodology/03-flaky-triage.md)** — read BEFORE Phase 2; the failure signature usually collapses the search space in one round |
 | You cannot run the actual operation (paid API, blocked network, missing hardware) but still need runtime evidence | 📖 **[references/methodology/partial-runtime-evidence.md](references/methodology/partial-runtime-evidence.md)** |
-| You're about to declare an extraction / audit / reverse-engineering task done and want a skeptical pass | 📖 **[references/methodology/partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks](references/methodology/partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks)** (Verification Oracle is *not* the same as Oracle Triple — read the file) |
+| A consequential extraction / audit / reverse-engineering claim needs an explicitly requested or risk-justified skeptical pass | 📖 **[references/methodology/partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks](references/methodology/partial-runtime-evidence.md#verification-oracle-pattern-for-non-debug-tasks)** (artifact verification and stuck-debug consultation have different evidence goals) |
 
 ---
 
@@ -107,11 +107,11 @@ These are not phases — read them when the situation calls for them:
 
 ## What to Do Right Now
 
-1. Read the user's bug description.
-2. Identify the runtime.
-3. **Open `references/runtimes/<runtime>.md`.** Read it.
-4. Identify which specialist tools apply. **Open each matching `references/tools/*.md`.** Read them.
-5. Open `references/methodology/00-setup.md` and start Phase 0.
-6. Follow the phase loop. Read each methodology reference as you enter the phase.
+1. Classify the request as diagnosis-only or diagnosis-plus-fix.
+2. Capture the smallest observation that can distinguish the leading cause.
+3. Start with one strong falsifiable hypothesis for a narrow deterministic failure; form multiple hypotheses only when the search space is genuinely ambiguous.
+4. Load the runtime and specialist references only for tools you will actually use.
+5. Delegate only if at least two investigations are independent, substantial, and expected to save more time than their handoff and integration cost.
+6. After a fix, reproduce the original scenario and clean up any artifacts you created.
 
 **The references are the skill. This file is an index.**

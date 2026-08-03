@@ -1,6 +1,6 @@
-# Phase 0 + 1 — Environment Assessment & Journal Setup
+# Phase 0 + 1 — Environment Assessment & Optional Journal
 
-Before a debugger touches anything, you need a map of what's running and a ledger of what you'll touch. Skipping either phase is how debug sessions turn into "why is my repo dirty a week later" sessions.
+Before attaching a debugger or mutating runtime state, map what is running. Create a journal when the investigation will create temporary edits, processes, ports, fixtures, or environment overrides. A read-only inspection or one clean reproduction with no artifacts does not need a journal.
 
 ---
 
@@ -41,9 +41,9 @@ If any answer is "I'm not sure", you are not ready for Phase 1. Investigate unti
 
 ---
 
-## Phase 1 — Journal Setup
+## Phase 1 — Journal Setup (when artifacts are expected)
 
-Open **one** journal file at the project root: `.debug-journal.md`. Single source of truth for every artifact this skill creates. The contract with the user that you can undo everything.
+For a durable or multi-step investigation that will create artifacts, open **one** journal file at the project root: `.debug-journal.md`. It is the source of truth for everything the investigation must undo. Skip this phase when no temporary state will be created.
 
 ### Exclude from git (don't pollute the committed ignore list)
 
@@ -74,7 +74,7 @@ Goal: <one-sentence user request>
 ## Failed hypothesis round counter
 - Round 1: <result>
 - Round 2: <result>
-<!-- At 2 consecutive failures, invoke Oracle Triple (see 04-oracle-triple.md). -->
+<!-- After 2 materially different failures, consider one scoped Oracle consultation (see 04-oracle-triple.md). -->
 
 ## Artifacts to revert
 <!-- Every temp edit, tmux session, fixture, env override, saved debugger session goes here
@@ -88,8 +88,8 @@ Goal: <one-sentence user request>
 ## Findings
 <!-- Append observed values here with timestamp. Verbatim only, no paraphrasing. -->
 
-## Oracle Triple (if invoked)
-<!-- One subsection per Oracle round, with the synthesized new hypothesis set. -->
+## Oracle consultation (if invoked)
+<!-- Record only the framing(s) that were justified and the resulting discriminating queries. -->
 
 ## Final fix
 <!-- File paths + test path. Filled during Phase 7. -->
@@ -97,7 +97,7 @@ Goal: <one-sentence user request>
 
 ### The journal-then-modify rule
 
-Before any modification to the repo, shell, or system state, append to "Artifacts to revert" first. This one discipline is what prevents debug sessions from becoming git cleanup sessions.
+Before a temporary debugging modification to the repo, shell, or system state, append it to "Artifacts to revert" first. Ordinary production edits that are already tracked by the task's version-control workflow do not belong in this temporary-artifact journal.
 
 If you catch yourself about to run a command that creates a file, opens a port, or modifies source — stop, journal the intended artifact with its revert command, then run the command. Not the other way around.
 

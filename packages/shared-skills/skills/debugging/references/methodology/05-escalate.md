@@ -9,11 +9,11 @@ Escalation is for genuine ambiguity, not for skipping investigation. Most "shoul
 - **Evidence exhausted**, contradictions remain, and further investigation would require a decision with policy implications (e.g. "patch the third-party SDK vs wrap it vs change architecture").
 - The bug has **multiple valid fixes with different scope/risk tradeoffs** and the user's preference drives the choice.
 - A proposed fix would **change observable product behavior** for the end user (not just fix the internal bug).
-- You've **exhausted the Oracle Triple** and another 2 rounds failed after synthesis.
+- Two materially different investigation rounds plus any applicable scoped Oracle consultation are exhausted, and progress now requires unavailable evidence, new authority, or a policy choice.
 
 ## Do NOT ask when
 
-- You haven't tried the Oracle Triple yet.
+- A cheap, safe runtime query can still decide the issue.
 - The question can be answered by one more runtime query.
 - You're asking for permission to do the obvious thing.
 - You're asking because you're tired.
@@ -55,7 +55,7 @@ Which direction do you want?
 
 - **Asking without evidence.** "What do you want me to do?" is not an escalation, it's abandonment. Every escalation includes the evidence the user needs to decide.
 - **Two questions in one.** One decision per escalation. Multi-part questions lead to partial answers and re-escalation.
-- **Escalating before Phase 4.** If you haven't tried the Oracle Triple, you haven't earned the right to escalate.
+- **Escalating before exhausting applicable evidence.** Run the smallest safe query that can decide the issue. An Oracle is optional; do not invoke one solely to earn permission to ask a question only the user can answer.
 - **Presenting options you don't actually have.** If option C requires a library the user doesn't use, don't list it. The options are only things you can actually do today.
 - **Hiding a recommendation.** The user hired you to think — always end with a recommendation, even if you're low-confidence. Say so explicitly: "Recommendation (low confidence): B, because X. If you have context about Y that I don't, it might change to A."
 

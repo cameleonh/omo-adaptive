@@ -28,7 +28,7 @@ describe("codex subagent limit config", () => {
     const content = await readFile(configPath, "utf8")
     expect(content).not.toMatch(/^\s*max_threads\s*=/m)
     expect(content).toContain("[features.multi_agent_v2]")
-    expect(content).toContain("max_concurrent_threads_per_session = 16")
+    expect(content).toContain("max_concurrent_threads_per_session = 6")
   })
 
   test("#given existing low agents max_threads #when updating config #then raises only the root cap", async () => {
@@ -43,7 +43,7 @@ describe("codex subagent limit config", () => {
         'model = "gpt-5.5"',
         "",
         "[agents]",
-        "max_threads = 6",
+        "max_threads = 2",
         "max_depth = 4",
         "",
         "[agents.explorer]",
@@ -64,10 +64,10 @@ describe("codex subagent limit config", () => {
 
     // then
     const content = await readFile(configPath, "utf8")
-    expect(content).toMatch(/\[agents\][\s\S]*?max_threads = 1000/)
+    expect(content).toMatch(/\[agents\][\s\S]*?max_threads = 6/)
     expect(content).toContain("max_depth = 4")
     expect(content).toContain("[agents.explorer]")
     expect(content).toContain('config_file = "./agents/explorer.toml"')
-    expect(content).not.toMatch(/^max_threads\s*=\s*6$/m)
+    expect(content).not.toMatch(/^max_threads\s*=\s*2$/m)
   })
 })
