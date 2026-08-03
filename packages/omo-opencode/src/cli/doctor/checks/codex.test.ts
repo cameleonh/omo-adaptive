@@ -30,7 +30,7 @@ async function createInstalledCodexHome(): Promise<{ readonly codexHome: string;
     [
       "[features]",
       "plugins = true",
-      "plugin_hooks = true",
+      "codex_hooks = true",
       "",
       "[marketplaces.sisyphuslabs]",
       `source = "${join(codexHome, "plugins", "cache", "sisyphuslabs")}"`,
@@ -78,6 +78,24 @@ describe("codex doctor checks", () => {
     expect(summary.linkedBins).toEqual(["omo", "omo-rules"])
   })
 
+  test("#given the legacy plugin_hooks feature key #when gathering Codex summary #then reports Codex hooks as disabled", async () => {
+    // given
+    const { codexHome, binDir } = await createInstalledCodexHome()
+    const configPath = join(codexHome, "config.toml")
+    const config = await readFile(configPath, "utf8")
+    await writeFile(configPath, config.replace("codex_hooks = true", "plugin_hooks = true"))
+
+    // when
+    const summary = await gatherCodexSummary({
+      codexHome,
+      binDir,
+      detectCodexInstallation: async () => ({ found: true, source: "cli", path: "/usr/local/bin/codex" }),
+    })
+
+    // then
+    expect(summary.config.pluginHooksFeatureEnabled).toBe(false)
+  })
+
   test("#given missing Codex config #when checking Codex doctor #then fails with install guidance", async () => {
     // given
     const root = await mkdtemp(join(tmpdir(), "omo-codex-doctor-missing-"))
@@ -106,7 +124,7 @@ describe("codex doctor checks", () => {
       [
         "[features]",
         "plugins = true",
-        "plugin_hooks = true",
+        "codex_hooks = true",
         "",
         "[marketplaces.sisyphuslabs]",
         `source = "${join(codexHome, "plugins", "cache", "sisyphuslabs")}"`,
@@ -139,7 +157,7 @@ describe("codex doctor checks", () => {
       [
         "[features]",
         "plugins = true",
-        "plugin_hooks = true",
+        "codex_hooks = true",
         "",
         '[plugins."omo@sisyphuslabs"]',
         "enabled = true",
@@ -231,7 +249,7 @@ describe("codex doctor checks", () => {
       [
         "[features]",
         "plugins = true",
-        "plugin_hooks = true",
+        "codex_hooks = true",
         "",
         "[marketplaces.sisyphuslabs]",
         `source = "${join(codexHome, "plugins", "cache", "sisyphuslabs")}"`,

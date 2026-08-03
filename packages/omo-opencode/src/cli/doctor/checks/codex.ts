@@ -198,7 +198,7 @@ async function readCodexConfigSummary(configPath: string): Promise<CodexConfigSu
     marketplaceConfigured: content.includes("[marketplaces.sisyphuslabs]"),
     pluginEnabled: settingEnabled(sectionBody(content, 'plugins."omo@sisyphuslabs"'), "enabled"),
     pluginsFeatureEnabled: featureEnabled(content, "plugins"),
-    pluginHooksFeatureEnabled: featureEnabled(content, "plugin_hooks"),
+    pluginHooksFeatureEnabled: featureEnabled(content, "codex_hooks"),
     companionPluginEnabled: settingEnabled(sectionBody(content, `plugins.${JSON.stringify(COMPANION_PLUGIN_KEY)}`), "enabled"),
     companionLifecycleHookStateEvents: readCompanionLifecycleHookStateEvents(content),
   }
