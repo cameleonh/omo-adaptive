@@ -39,7 +39,7 @@ async function createPackagedCodexRepoRoot(): Promise<string> {
 }
 
 describe("install-codex project-local cleanup", () => {
-  test("#given stale project-local Codex config #when installing Codex Light #then repairs the local conflict before returning success", async () => {
+  test("#given stale project-local V2 thread-limit config #when installing Codex Light #then removes only the invalid V2 setting before returning success", async () => {
     // given
     const codexHome = await mkdtemp(join(tmpdir(), "omo-codex-home-project-cleanup-"))
     const binDir = await mkdtemp(join(tmpdir(), "omo-codex-bin-project-cleanup-"))
@@ -55,6 +55,7 @@ describe("install-codex project-local cleanup", () => {
       [
         "[features.multi_agent_v2]",
         "enabled = true",
+        "max_concurrent_threads_per_session = 12",
         "",
         "[agents]",
         "max_threads = 12",
@@ -78,14 +79,15 @@ describe("install-codex project-local cleanup", () => {
     // then
     expect(result.projectCleanup.configPath).toBe(projectConfigPath)
     expect(result.projectCleanup.changed).toBe(true)
-    expect(result.projectCleanup.removedKeys).toEqual(["max_threads"])
+    expect(result.projectCleanup.removedKeys).toEqual(["max_concurrent_threads_per_session"])
     expect(result.projectCleanup.configs).toHaveLength(1)
     expect(result.projectCleanup.backupPath).toBeDefined()
     const content = await readFile(projectConfigPath, "utf8")
-    expect(content).not.toMatch(/^max_threads\s*=/m)
+    expect(content).not.toMatch(/^max_concurrent_threads_per_session\s*=/m)
+    expect(content).toMatch(/^max_threads\s*=\s*12/m)
     expect(content).toContain("max_depth = 5")
     expect(content).toContain("[features.multi_agent_v2]")
-    expect(await readFile(result.projectCleanup.backupPath ?? "", "utf8")).toContain("max_threads = 12")
+    expect(await readFile(result.projectCleanup.backupPath ?? "", "utf8")).toContain("max_concurrent_threads_per_session = 12")
   }, { timeout: 15_000 })
 
   test("#given only global CODEX_HOME config under a parent directory #when installing Codex Light #then project cleanup leaves it to the global config updater", async () => {
@@ -98,8 +100,6 @@ describe("install-codex project-local cleanup", () => {
     const repoRoot = await createPackagedCodexRepoRoot()
     await mkdir(projectDirectory, { recursive: true })
     await mkdir(codexHome, { recursive: true })
-    // A pinned v1 model keeps the legacy cap raise observable; the stamped
-    // v2-preferred default would remove agents.max_threads instead.
     await writeFile(
       globalConfigPath,
       [
@@ -131,8 +131,7 @@ describe("install-codex project-local cleanup", () => {
     expect(result.projectCleanup.configPath).toBeNull()
     expect(result.projectCleanup.changed).toBe(false)
     const content = await readFile(globalConfigPath, "utf8")
-    expect(content).toContain("max_threads = 6")
-    expect(content).not.toContain("max_threads = 12")
+    expect(content).toContain("max_threads = 12")
     expect(content).toContain("max_depth = 5")
   }, { timeout: 30_000 })
 

@@ -1,8 +1,8 @@
 import { copyFile, lstat, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import { escapeRegExp, findTomlSection, removeSetting } from "./toml-section-editor"
+import { appendBlock, escapeRegExp, findTomlSection, removeSetting, replaceOrInsertSetting } from "./toml-section-editor"
 
-const LEGACY_AGENT_CONFLICT_KEYS = ["max_threads"] as const
+const LEGACY_MULTI_AGENT_V2_CONFLICT_KEYS = ["max_concurrent_threads_per_session"] as const
 const PROJECT_LOCAL_ARTIFACT_PATHS = [
   ".codex/hooks.json",
   ".codex/agents",
@@ -10,13 +10,13 @@ const PROJECT_LOCAL_ARTIFACT_PATHS = [
   ".codex/skills",
 ] as const
 
-type LegacyAgentConflictKey = (typeof LEGACY_AGENT_CONFLICT_KEYS)[number]
+type LegacyMultiAgentV2ConflictKey = (typeof LEGACY_MULTI_AGENT_V2_CONFLICT_KEYS)[number]
 
 export interface ProjectLocalCodexConfigCleanup {
   readonly projectRoot: string
   readonly configPath: string
   readonly changed: boolean
-  readonly removedKeys: readonly LegacyAgentConflictKey[]
+  readonly removedKeys: readonly LegacyMultiAgentV2ConflictKey[]
   readonly backupPath?: string
 }
 
@@ -30,7 +30,7 @@ export interface ProjectLocalCodexCleanupResult {
   readonly projectRoot: string | null
   readonly configPath: string | null
   readonly changed: boolean
-  readonly removedKeys: readonly LegacyAgentConflictKey[]
+  readonly removedKeys: readonly LegacyMultiAgentV2ConflictKey[]
   readonly backupPath?: string
   readonly configs: readonly ProjectLocalCodexConfigCleanup[]
   readonly artifacts: readonly ProjectLocalCodexArtifact[]
@@ -101,8 +101,8 @@ export function emptyProjectLocalCodexCleanupResult(): ProjectLocalCodexCleanupR
   }
 }
 
-function uniqueRemovedKeys(configs: readonly ProjectLocalCodexConfigCleanup[]): readonly LegacyAgentConflictKey[] {
-  const keys: LegacyAgentConflictKey[] = []
+function uniqueRemovedKeys(configs: readonly ProjectLocalCodexConfigCleanup[]): readonly LegacyMultiAgentV2ConflictKey[] {
+  const keys: LegacyMultiAgentV2ConflictKey[] = []
   for (const config of configs) {
     for (const key of config.removedKeys) {
       if (!keys.includes(key)) keys.push(key)
@@ -118,16 +118,16 @@ function lastValue<T>(values: readonly T[]): T | null {
 export function repairProjectLocalCodexConfigText(config: string): {
   readonly config: string
   readonly changed: boolean
-  readonly removedKeys: readonly LegacyAgentConflictKey[]
+  readonly removedKeys: readonly LegacyMultiAgentV2ConflictKey[]
 } {
-  if (!isMultiAgentV2Enabled(config)) return { config, changed: false, removedKeys: [] }
-
   let nextConfig = config
-  const removedKeys: LegacyAgentConflictKey[] = []
-  for (const key of LEGACY_AGENT_CONFLICT_KEYS) {
-    const section = findTomlSection(nextConfig, "agents")
+  const removedKeys: LegacyMultiAgentV2ConflictKey[] = []
+  for (const key of LEGACY_MULTI_AGENT_V2_CONFLICT_KEYS) {
+    const section = findTomlSection(nextConfig, "features.multi_agent_v2")
     if (section === null || !hasSetting(section.text, key)) continue
+    const threadLimit = readPositiveIntegerSetting(section.text, key)
     nextConfig = removeSetting(nextConfig, section, key)
+    if (threadLimit !== null) nextConfig = ensureAgentsMaxThreads(nextConfig, threadLimit)
     removedKeys.push(key)
   }
 
@@ -225,20 +225,20 @@ async function collectProjectLocalArtifacts(projectRoots: readonly string[]): Pr
   return artifacts
 }
 
-function isMultiAgentV2Enabled(config: string): boolean {
-  const featuresSection = findTomlSection(config, "features")
-  if (featuresSection !== null && settingIsBooleanTrue(featuresSection.text, "multi_agent_v2")) return true
-
-  const multiAgentSection = findTomlSection(config, "features.multi_agent_v2")
-  return multiAgentSection !== null && settingIsBooleanTrue(multiAgentSection.text, "enabled")
-}
-
-function settingIsBooleanTrue(sectionText: string, key: string): boolean {
-  return new RegExp(`^\\s*${escapeRegExp(key)}\\s*=\\s*true\\s*(?:#.*)?$`, "m").test(sectionText)
-}
-
 function hasSetting(sectionText: string, key: string): boolean {
   return new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`, "m").test(sectionText)
+}
+
+function readPositiveIntegerSetting(sectionText: string, key: string): string | null {
+  const match = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=\\s*([1-9]\\d*)\\s*(?:#.*)?$`, "m").exec(sectionText)
+  return match?.[1] ?? null
+}
+
+function ensureAgentsMaxThreads(config: string, threadLimit: string): string {
+  const agentsSection = findTomlSection(config, "agents")
+  if (agentsSection === null) return appendBlock(config, `[agents]\nmax_threads = ${threadLimit}\n`)
+  if (hasSetting(agentsSection.text, "max_threads")) return config
+  return replaceOrInsertSetting(config, agentsSection, "max_threads", threadLimit)
 }
 
 function formatBackupTimestamp(date: Date): string {

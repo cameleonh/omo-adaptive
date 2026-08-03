@@ -5,10 +5,10 @@ import { describe, expect, test } from "bun:test"
 import { lstat, mkdir, mkdtemp, readFile, stat, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { repairNearestProjectLocalCodexArtifacts } from "./codex-project-local-cleanup"
+import { repairNearestProjectLocalCodexArtifacts, repairProjectLocalCodexConfigText } from "./codex-project-local-cleanup"
 
 describe("codex project-local cleanup", () => {
-  test("#given stale project-local Codex config #when repairing from a nested directory #then removes legacy agent concurrency keys with a backup", async () => {
+  test("#given stale project-local V2 thread-limit config #when repairing from a nested directory #then removes only the invalid V2 setting with a backup", async () => {
     // given
     const projectRoot = await mkdtemp(join(tmpdir(), "omo-codex-project-cleanup-"))
     const nestedDir = join(projectRoot, "packages", "app")
@@ -21,9 +21,13 @@ describe("codex project-local cleanup", () => {
       [
         "[features.multi_agent_v2]",
         "enabled = true",
+        "usage_hint_enabled = false",
+        'usage_hint_text = "preserve this hint"',
+        "hide_spawn_agent_metadata = true",
+        "max_concurrent_threads_per_session = 8",
         "",
         "[agents]",
-        "  max_threads = 8",
+        "  max_threads = 12",
         "max_depth = 3",
         "job_max_runtime_seconds = 3600",
         "",
@@ -42,19 +46,50 @@ describe("codex project-local cleanup", () => {
     // then
     expect(result.configPath).toBe(configPath)
     expect(result.changed).toBe(true)
-    expect(result.removedKeys).toEqual(["max_threads"])
+    expect(result.removedKeys).toEqual(["max_concurrent_threads_per_session"])
     expect(result.configs).toHaveLength(1)
     expect(result.backupPath).toBe(`${configPath}.backup-2026-06-01T12-34-56-789Z`)
-    expect(await readFile(result.backupPath ?? "", "utf8")).toContain("max_threads = 8")
+    expect(await readFile(result.backupPath ?? "", "utf8")).toContain("max_concurrent_threads_per_session = 8")
     const content = await readFile(configPath, "utf8")
     expect(content).toContain("[features.multi_agent_v2]")
     expect(content).toContain("enabled = true")
+    expect(content).toContain("usage_hint_enabled = false")
+    expect(content).toContain('usage_hint_text = "preserve this hint"')
+    expect(content).toContain("hide_spawn_agent_metadata = true")
+    expect(content).not.toMatch(/^\s*max_concurrent_threads_per_session\s*=/m)
     expect(content).toContain("[agents]")
-    expect(content).not.toMatch(/^\s*max_threads\s*=/m)
+    expect(content).toMatch(/^\s*max_threads\s*=\s*12/m)
     expect(content).toContain("max_depth = 3")
     expect(content).toContain("job_max_runtime_seconds = 3600")
     expect(content).toContain("[agents.explorer]")
     expect(content).toContain('config_file = "./agents/explorer.toml"')
+  })
+
+  test("#given a legacy V2 thread limit without an agents cap #when repairing #then moves the limit to agents while preserving valid V2 settings", () => {
+    // given
+    const config = [
+      "[features.multi_agent_v2]",
+      "enabled = true",
+      "usage_hint_enabled = false",
+      'usage_hint_text = "preserve this hint"',
+      "hide_spawn_agent_metadata = true",
+      "max_concurrent_threads_per_session = 8",
+      "",
+    ].join("\n")
+
+    // when
+    const repair = repairProjectLocalCodexConfigText(config)
+
+    // then
+    expect(repair.changed).toBe(true)
+    expect(repair.removedKeys).toEqual(["max_concurrent_threads_per_session"])
+    expect(repair.config).toContain("[features.multi_agent_v2]")
+    expect(repair.config).toContain("enabled = true")
+    expect(repair.config).toContain("usage_hint_enabled = false")
+    expect(repair.config).toContain('usage_hint_text = "preserve this hint"')
+    expect(repair.config).toContain("hide_spawn_agent_metadata = true")
+    expect(repair.config).not.toMatch(/^\s*max_concurrent_threads_per_session\s*=/m)
+    expect(repair.config).toMatch(/^\[agents\]\nmax_threads = 8$/m)
   })
 
   test("#given root and nested project-local Codex configs #when repairing from the nested directory #then repairs every config layer Codex loads", async () => {
@@ -72,6 +107,7 @@ describe("codex project-local cleanup", () => {
       [
         "[features.multi_agent_v2]",
         "enabled = true",
+        "max_concurrent_threads_per_session = 8",
         "",
         "[agents]",
         "max_threads = 8",
@@ -106,7 +142,8 @@ describe("codex project-local cleanup", () => {
     expect(result.backupPath).toBe(`${rootConfigPath}.backup-2026-06-01T01-02-03-004Z`)
     const rootContent = await readFile(rootConfigPath, "utf8")
     const nestedContent = await readFile(nestedConfigPath, "utf8")
-    expect(rootContent).not.toMatch(/^max_threads\s*=/m)
+    expect(rootContent).not.toMatch(/^max_concurrent_threads_per_session\s*=/m)
+    expect(rootContent).toMatch(/^max_threads\s*=\s*8/m)
     expect(rootContent).toContain("max_depth = 3")
     expect(nestedContent).toContain("job_max_runtime_seconds = 7200")
     expect(result.artifacts.map((artifact) => artifact.path).sort()).toEqual([
