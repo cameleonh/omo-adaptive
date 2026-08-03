@@ -1,0 +1,1 @@
+Fix add() so negative operands work. Add a regression test named "adds negative operands". Run exactly: bun test math.test.ts

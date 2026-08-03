@@ -7,6 +7,8 @@
 
 This fork keeps OMO's orchestration features but changes the default decision policy: parallel agents, formal planning, broad test suites, and manual QA are used only when their expected value exceeds their coordination cost.
 
+**Fork metadata:** 2026-08-03 snapshot, upstream base `a6dbc0ca`, fork branch `main`, package version `4.19.4`. The inherited product documentation below keeps upstream names and marketplace references where they describe compatible interfaces. Fork-specific installation and evaluation guidance is labeled explicitly.
+
 ## What changed in this fork
 
 | Area | Upstream behavior | OMO Adaptive behavior |
@@ -32,19 +34,35 @@ The main policy changes live in:
 
 The internal Codex plugin name remains `omo`, the marketplace identity remains `omo@sisyphuslabs`, and existing OMO config paths and CLI aliases remain unchanged. The visible product name is **OMO Adaptive**. Deep modes such as Ultrawork, ULW loops, wide fan-out, full review lanes, and release-grade QA are still available when explicitly requested or justified by risk.
 
-### Install this fork for Codex
+### Evaluate this fork for Codex first
 
-The published `lazycodex-ai` package is upstream and does not contain these changes. To install this fork from source:
+The published `lazycodex-ai` package is upstream and does not contain these changes. Check out the planned immutable fork tag. Then follow the executable [Adaptive policy benchmark](docs/reference/adaptive-policy-evaluation.md) guide to prepare both isolated templates and run the full dry-run matrix before any live evaluation:
 
 ```bash
-git clone https://github.com/cameleonh/omo-adaptive.git
+git clone --branch v4.19.4-adaptive.1 --depth 1 https://github.com/cameleonh/omo-adaptive.git
 cd omo-adaptive
+test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.1"
+git rev-parse HEAD
 git submodule update --init --recursive
 bun install
-bun run install:codex-dev
+
+mkdir -p .omo/evidence
+benchmark_root="$(mktemp -d .omo/evidence/adaptive-policy-benchmark-dry-run.XXXXXX)"
+bun script/adaptive-policy-benchmark.ts \
+  --variant adaptive --tier Light --model gpt-5.6 \
+  --codex-home-template /absolute/path/to/adaptive-template \
+  --output "$benchmark_root/adaptive-light" \
+  --dry-run
 ```
 
-`bun run install:codex-dev` removes the current Codex Light install and installs this checkout into the real `~/.codex` with a visible `dev` version stamp. Review the command before running it. Contributors should use the isolated `CODEX_HOME` flow in `packages/omo-codex/README.md` for QA.
+The benchmark refuses the real `~/.codex` and requires a variant-matched, preinstalled isolated template. Its app-server driver preflight is for hook verification only, not benchmark capture.
+
+> [!WARNING]
+> With `CODEX_HOME` unset, `bun run install:codex-dev` uses and modifies the real `~/.codex`, replacing the current Codex Light installation with this checkout under a visible `dev` version stamp. Use it only after the isolated evaluation and review its effects.
+
+```bash
+bun run install:codex-dev
+```
 
 ---
 
@@ -114,7 +132,7 @@ bun run install:codex-dev
 [![GitHub Forks](https://img.shields.io/github/forks/code-yeongyu/oh-my-openagent?color=8ae8ff&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/network/members)
 [![GitHub Stars](https://img.shields.io/github/stars/code-yeongyu/oh-my-openagent?color=ffcb47&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/code-yeongyu/oh-my-openagent?color=ff80eb&labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/issues)
-[![License](https://img.shields.io/badge/license-SUL--1.0-white?labelColor=black&style=flat-square)](https://github.com/code-yeongyu/oh-my-openagent/blob/dev/LICENSE.md)
+[![License](https://img.shields.io/badge/license-SUL--1.0-white?labelColor=black&style=flat-square)](https://github.com/cameleonh/omo-adaptive/blob/v4.19.4-adaptive.1/LICENSE.md)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/code-yeongyu/oh-my-openagent)
 [![Docs](https://img.shields.io/badge/docs-omo.vibetip.help-369eff?labelColor=black&logo=readthedocs&logoColor=white&style=flat-square)](https://omo.vibetip.help/docs)
 
@@ -186,7 +204,7 @@ Paste this prompt into Claude Code, AmpCode, Cursor, or any agent:
 
 ```
 Install and configure oh-my-openagent by following the instructions here:
-https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/docs/guide/installation.md
+https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
 ```
 
 If you only want the **Light edition** (Codex CLI), the installer asks whether to configure Codex for autonomous full-permissions mode. You can run it yourself in one line:
@@ -204,7 +222,7 @@ For the Light edition, Bun is not required. Use `npx lazycodex-ai install` from 
 Fetch the full guide and follow it step by step:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/docs/guide/installation.md
+curl -fsSL https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
 ```
 
 The guide covers: platform selection, the subscription interview, provider authentication (Anthropic / Gemini / Copilot / Z.ai / OpenCode Zen), the agent-to-model matching matrix, modes (`ultrawork`, `search`, `analyze`, `team`, `hyperplan`), slash commands, the Light edition's 8 Codex components, Team Mode, and uninstall. Don't summarize it; read it end to end.
@@ -233,7 +251,7 @@ See [Privacy Policy](docs/legal/privacy-policy.md) and [Terms of Service](docs/l
 We're past the era of reading docs. Just paste this into your agent:
 
 ```
-Read this and tell me why it's not just another boilerplate: https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/README.md
+Read this and tell me why it's not just another boilerplate: https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/README.md
 ```
 
 

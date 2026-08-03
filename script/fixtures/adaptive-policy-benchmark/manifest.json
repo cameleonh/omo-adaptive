@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "light-readme-typo",
+      "tier": "Light",
+      "promptFile": "prompts/light-readme-typo.txt",
+      "fixtureDirectory": "cases/light-readme-typo",
+      "completionCriterion": { "kind": "file_contains", "path": "README.md", "contains": "reproducible benchmark" },
+      "behavioralOracle": null,
+      "expectedVerificationPatterns": ["git diff --check"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "standard-add-regression",
+      "tier": "Standard",
+      "promptFile": "prompts/standard-add-regression.txt",
+      "fixtureDirectory": "cases/standard-add-regression",
+      "completionCriterion": { "kind": "file_contains", "path": "math.test.ts", "contains": "adds negative operands" },
+      "behavioralOracle": { "name": "standard-add-behavior", "path": "oracles/standard-add.ts" },
+      "expectedVerificationPatterns": ["bun test"],
+      "timeoutMs": 180000
+    },
+    {
+      "id": "deep-cross-module-total",
+      "tier": "Deep",
+      "promptFile": "prompts/deep-cross-module-total.txt",
+      "fixtureDirectory": "cases/deep-cross-module-total",
+      "completionCriterion": { "kind": "file_contains", "path": "src/report.test.ts", "contains": "sums every invoice item" },
+      "behavioralOracle": { "name": "deep-report-behavior", "path": "oracles/deep-report-total.ts" },
+      "expectedVerificationPatterns": ["bun test", "typecheck"],
+      "timeoutMs": 300000
+    }
+  ]
+}

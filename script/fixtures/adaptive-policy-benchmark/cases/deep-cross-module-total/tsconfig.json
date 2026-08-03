@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "strict": true, "noEmit": true, "moduleResolution": "bundler" },
+  "include": ["src/invoice.ts", "src/report.ts"]
+}

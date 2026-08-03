@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

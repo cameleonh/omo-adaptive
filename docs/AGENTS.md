@@ -1,6 +1,6 @@
 # docs/ — User-Facing Documentation
 
-**Generated:** 2026-07-17 / 7d664b96b
+**Generated:** 2026-08-03 / upstream base a6dbc0ca / branch main / package v4.19.4
 
 ## OVERVIEW
 
@@ -29,6 +29,7 @@
 | Claiming the lazycodex npm name | [docs/reference/lazycodex-npm-reservation.md](reference/lazycodex-npm-reservation.md) |
 | Rules-injector cross-module comparison | [docs/reference/rules-injection-cross-module-comparison.md](reference/rules-injection-cross-module-comparison.md) |
 | Codex telemetry internals | [docs/reference/codex-telemetry.md](reference/codex-telemetry.md) |
+| Executable Adaptive policy benchmark | [docs/reference/adaptive-policy-evaluation.md](reference/adaptive-policy-evaluation.md) |
 | Monitor tool reference | [docs/reference/monitor.md](reference/monitor.md) |
 | Web-terminal visual QA helper | [docs/reference/web-terminal-visual-qa.md](reference/web-terminal-visual-qa.md) |
 | Sample configs | [docs/examples/](examples) (default, coding-focused, planning-focused) |

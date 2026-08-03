@@ -1,0 +1,1 @@
+Fix the cross-module report total so every invoice item is included. Add a regression test named "sums every invoice item". Run exactly: bun test src/report.test.ts && bun run typecheck

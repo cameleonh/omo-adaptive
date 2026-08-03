@@ -1,5 +1,38 @@
 # Installation
 
+> [!IMPORTANT]
+> **OMO Adaptive fork notice.** This repository is an independent, non-commercial fork of `code-yeongyu/oh-my-openagent`, based on upstream `a6dbc0ca`. The upstream copyright, Sustainable Use License, third-party notices, and the Codex marketplace identity `sisyphuslabs` / `omo@sisyphuslabs` remain in effect. The general installation material below is inherited for compatible interfaces. Use the fork-specific source evaluation path before a real-home install.
+
+## OMO Adaptive source evaluation
+
+The published `lazycodex-ai` package is upstream and does not include this fork's policy changes. Start from the planned immutable tag, then use the executable [Adaptive policy benchmark](../reference/adaptive-policy-evaluation.md) guide to prepare both isolated templates and run its dry-run matrix:
+
+```bash
+git clone --branch v4.19.4-adaptive.1 --depth 1 https://github.com/cameleonh/omo-adaptive.git
+cd omo-adaptive
+test "$(git describe --tags --exact-match)" = "v4.19.4-adaptive.1"
+git rev-parse HEAD
+git submodule update --init --recursive
+bun install
+
+mkdir -p .omo/evidence
+benchmark_root="$(mktemp -d .omo/evidence/adaptive-policy-benchmark-dry-run.XXXXXX)"
+bun script/adaptive-policy-benchmark.ts \
+  --variant adaptive --tier Light --model gpt-5.6 \
+  --codex-home-template /absolute/path/to/adaptive-template \
+  --output "$benchmark_root/adaptive-light" \
+  --dry-run
+```
+
+The benchmark uses a variant-matched, preinstalled isolated template and refuses the real `~/.codex`. The linked guide contains the app-server hook preflight, six-cell dry-run matrix, live-run approval boundary, and artifact interpretation.
+
+> [!WARNING]
+> With `CODEX_HOME` unset, the next command removes the current Codex Light installation and writes this checkout to the real `~/.codex`. Do not run it until the isolated evaluation is complete and reviewed.
+
+```bash
+bun run install:codex-dev
+```
+
 oh-my-openagent ships in **two editions** of the same product:
 
 - **Ultimate Edition (omo for [OpenCode](https://opencode.ai))** — the full omo experience. 11 discipline agents, 54+ lifecycle hooks, all built-in MCPs, every slash command, Team Mode, ulw-loop, hashline edits, the works.
@@ -25,7 +58,7 @@ Paste this prompt into Claude Code, AmpCode, Cursor, or any LLM agent session:
 
 ```
 Install and configure oh-my-openagent by following the instructions here:
-https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/docs/guide/installation.md
+https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
 ```
 
 ### Light (Codex CLI) — one line, no agent needed
@@ -153,7 +186,7 @@ Do not run a blanket trust command. Trust only packages you recognize from this 
 > **IMPORTANT: Use `curl` to fetch this file, NOT WebFetch.** WebFetch summarizes content and loses critical flags like `--platform`, subscription questions, and Codex verification details. Always use:
 >
 > ```bash
-> curl -fsSL https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/refs/heads/dev/docs/guide/installation.md
+> curl -fsSL https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/docs/guide/installation.md
 > ```
 
 If you are an LLM agent helping a user install oh-my-openagent, help them install the requested edition, verify the setup, and configure model providers.
@@ -835,7 +868,7 @@ Merge rules:
 Schema autocomplete in your editor:
 
 ```json
-"$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json"
+"$schema": "https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/assets/oh-my-opencode.schema.json"
 ```
 
 #### Turning features off

@@ -1,10 +1,10 @@
 # OMO Adaptive - Multi-Harness Agent OS Fork
 
-> **Modified fork notice:** OMO Adaptive is based on [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent). This fork changes execution policy, shared skills, and Codex concurrency defaults. Preserve upstream copyright, license, and third-party notices.
+> **Modified fork notice:** OMO Adaptive is based on [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) at upstream base `a6dbc0ca`. This fork changes execution policy, shared skills, and Codex concurrency defaults. Preserve upstream copyright, license, third-party notices, and the `sisyphuslabs` / `omo@sisyphuslabs` marketplace identity. Inherited documentation describes compatible upstream interfaces; label fork-specific guidance as OMO Adaptive.
 
 > The multi-harness refactor is active. Read [ROADMAP.md](./ROADMAP.md) before changing architecture and verify paths instead of assuming the structure is stable.
 
-**Generated:** 2026-07-17 | **Source snapshot:** 7d664b96b | **Branch:** dev | **Release:** v4.18.2
+**Generated:** 2026-08-03 | **Source snapshot:** a6dbc0ca | **Branch:** main | **Release:** v4.19.4
 
 ## Adaptive execution policy
 
@@ -222,7 +222,7 @@ Defaults                   (Zod schema defaults)
 - `mcp_env_allowlist` + `browser_automation_engine.playwright_mcp_args`: **user-layer only** (incl. the user's own profile block); project layers cannot extend them
 - Runtime migration (lock+journal, no-clobber, markers in `_migrations`): ids `2026-07-opencode-config-unification` (oh-my-* files) and `2026-07-codex-config-jsonc` (`~/.omo/config.jsonc`); backups at `~/.omo/migration-backup-<UTC-ts>-opencode-config/`; triggers at plugin startup (opencode + senpi), codex startup (config.jsonc group only), install, and `oh-my-openagent config migrate` (`--dry-run`/`--json`)
 
-Schema autocomplete: `"$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json"`
+Schema autocomplete: `"$schema": "https://raw.githubusercontent.com/cameleonh/omo-adaptive/v4.19.4-adaptive.1/assets/omo.schema.json"`
 
 ## THREE-TIER MCP SYSTEM
 
