@@ -5,18 +5,25 @@ import {
   getLocalDevVersion,
   isLocalDevMode,
 } from "../../hooks/auto-update-checker/checker"
+import { getActiveCachedLazyCodexVersion } from "@oh-my-opencode/omo-codex/install"
 
 import type { GetLocalVersionOptions, VersionInfo } from "./types"
 import { formatJsonOutput, formatVersionOutput } from "./formatter"
 
+type GetLocalVersionDeps = {
+  readonly getCachedVersion?: () => string | null
+}
+
 export async function getLocalVersion(
-  options: GetLocalVersionOptions = {}
+  options: GetLocalVersionOptions = {},
+  deps: GetLocalVersionDeps = {},
 ): Promise<number> {
   const directory = options.directory ?? process.cwd()
+  const readCachedVersion = deps.getCachedVersion ?? getCachedVersion
 
   try {
     if (isLocalDevMode(directory)) {
-      const currentVersion = getLocalDevVersion(directory) ?? getCachedVersion()
+      const currentVersion = getLocalDevVersion(directory) ?? readCachedVersion()
       const info: VersionInfo = {
         currentVersion,
         latestVersion: null,
@@ -27,13 +34,13 @@ export async function getLocalVersion(
         status: "local-dev",
       }
 
-      console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+      outputVersionInfo(options, info)
       return 0
     }
 
     const pluginInfo = findPluginEntry(directory)
     if (pluginInfo?.isPinned) {
-      const actualVersion = getCachedVersion()
+      const actualVersion = readCachedVersion()
       const isMismatch = actualVersion !== null && actualVersion !== pluginInfo.pinnedVersion
       const info: VersionInfo = {
         currentVersion: isMismatch ? actualVersion : pluginInfo.pinnedVersion,
@@ -45,11 +52,13 @@ export async function getLocalVersion(
         status: isMismatch ? "pinned-mismatch" : "pinned",
       }
 
-      console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+      outputVersionInfo(options, info)
       return 0
     }
 
-    const currentVersion = getCachedVersion()
+    const codexHome = options.codexHome?.trim() || process.env.CODEX_HOME?.trim()
+    const codexVersion = codexHome === undefined ? null : getActiveCachedLazyCodexVersion({ codexHome })
+    const currentVersion = codexVersion ?? readCachedVersion()
     if (!currentVersion) {
       const info: VersionInfo = {
         currentVersion: null,
@@ -61,7 +70,7 @@ export async function getLocalVersion(
         status: "unknown",
       }
 
-      console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+      outputVersionInfo(options, info)
       return 1
     }
 
@@ -76,7 +85,7 @@ export async function getLocalVersion(
         status: "dev",
       }
 
-      console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+      outputVersionInfo(options, info)
       return 0
     }
 
@@ -95,7 +104,7 @@ export async function getLocalVersion(
         status: "error",
       }
 
-      console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+      outputVersionInfo(options, info)
       return 0
     }
 
@@ -110,9 +119,9 @@ export async function getLocalVersion(
       status: isUpToDate ? "up-to-date" : "outdated",
     }
 
-    console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+    outputVersionInfo(options, info)
     return 0
-  } catch (error) {
+  } catch (error) { // no-excuse-ok: catch -- CLI output boundary reports every resolution failure uniformly.
     const info: VersionInfo = {
       currentVersion: null,
       latestVersion: null,
@@ -123,7 +132,16 @@ export async function getLocalVersion(
       status: "error",
     }
 
-    console.log(options.json ? formatJsonOutput(info) : formatVersionOutput(info))
+    outputVersionInfo(options, info)
     return 1
   }
+}
+
+function outputVersionInfo(options: GetLocalVersionOptions, info: VersionInfo): void {
+  const output = options.json ? formatJsonOutput(info) : formatVersionOutput(info)
+  if (options.output !== undefined) {
+    options.output(output)
+    return
+  }
+  console.log(output)
 }

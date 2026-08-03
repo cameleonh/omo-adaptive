@@ -1,10 +1,29 @@
 import { isPlainRecord } from "./codex-cache-fs"
+import { readFileSync, realpathSync } from "node:fs"
 import { readdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { homedir } from "node:os"
+import { isAbsolute, join, relative } from "node:path"
 
 export interface DistributionManifest {
   readonly name: string
   readonly version: string
+}
+
+const MARKETPLACE_NAME = "sisyphuslabs"
+const PLUGIN_NAME = "omo"
+
+export function getActiveCachedLazyCodexVersion(input: { readonly codexHome?: string; readonly homeDir?: string } = {}): string | null {
+  const codexHome = input.codexHome ?? process.env.CODEX_HOME ?? join(input.homeDir ?? homedir(), ".codex")
+  const canonicalCodexHome = canonicalPath(codexHome)
+  if (canonicalCodexHome === null) return null
+  const canonicalCacheRoot = canonicalPathWithin(join(canonicalCodexHome, "plugins", "cache"), canonicalCodexHome)
+  if (canonicalCacheRoot === null) return null
+  const canonicalMarketplaceRoot = canonicalPathWithin(join(canonicalCacheRoot, MARKETPLACE_NAME), canonicalCacheRoot)
+  if (canonicalMarketplaceRoot === null) return null
+  const canonicalPluginRoot = canonicalPathWithin(join(canonicalMarketplaceRoot, PLUGIN_NAME), canonicalMarketplaceRoot)
+  if (canonicalPluginRoot === null) return null
+  const activePluginRoot = readActivePluginRoot(canonicalMarketplaceRoot, canonicalPluginRoot)
+  return activePluginRoot === null ? null : readCachedPluginManifestVersion(activePluginRoot)
 }
 
 export async function readDistributionManifest(repoRoot: string): Promise<DistributionManifest | undefined> {
@@ -19,6 +38,66 @@ export async function readDistributionManifest(repoRoot: string): Promise<Distri
     if (error instanceof Error) return undefined
     throw error
   }
+}
+
+function readActivePluginRoot(marketplaceRoot: string, pluginRoot: string): string | null {
+  const marketplaceManifestPath = canonicalPathWithin(join(marketplaceRoot, ".agents", "plugins", "marketplace.json"), marketplaceRoot)
+  if (marketplaceManifestPath === null) return null
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(marketplaceManifestPath, "utf8"))
+    if (!isPlainRecord(parsed) || !Array.isArray(parsed.plugins)) return null
+    const plugin = parsed.plugins.find((entry) => isPlainRecord(entry) && entry.name === PLUGIN_NAME)
+    if (!isPlainRecord(plugin) || !isPlainRecord(plugin.source) || plugin.source.source !== "local" || typeof plugin.source.path !== "string") return null
+    const version = cachedPluginVersionFromMarketplacePath(plugin.source.path)
+    return version === null ? null : canonicalPathWithin(join(pluginRoot, version), pluginRoot)
+  } catch (error) {
+    if (error instanceof Error) return null
+    throw error
+  }
+}
+
+function cachedPluginVersionFromMarketplacePath(path: string): string | null {
+  const parts = path.split(/[\\/]/)
+  if (parts.length !== 3 || parts[0] !== "." || parts[1] !== PLUGIN_NAME) return null
+  const version = parts[2]
+  return version === undefined || !isSafeCacheSegment(version) ? null : version
+}
+
+function isSafeCacheSegment(value: string): boolean {
+  return value.length > 0 && value.trim() === value && value !== "." && value !== ".." && !/[\\/\0]/.test(value)
+}
+
+function readCachedPluginManifestVersion(pluginRoot: string): string | null {
+  const manifestPath = canonicalPathWithin(join(pluginRoot, ".codex-plugin", "plugin.json"), pluginRoot)
+  if (manifestPath === null) return null
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"))
+    if (!isPlainRecord(parsed) || parsed.name !== PLUGIN_NAME || typeof parsed.version !== "string") return null
+    const version = parsed.version.trim()
+    return version.length === 0 ? null : version
+  } catch (error) {
+    if (error instanceof Error) return null
+    throw error
+  }
+}
+
+function canonicalPath(path: string): string | null {
+  try {
+    return realpathSync(path)
+  } catch (error) {
+    if (error instanceof Error) return null
+    throw error
+  }
+}
+
+function canonicalPathWithin(candidatePath: string, canonicalRoot: string): string | null {
+  const canonicalCandidate = canonicalPath(candidatePath)
+  return canonicalCandidate !== null && isPathInside(canonicalCandidate, canonicalRoot) ? canonicalCandidate : null
+}
+
+function isPathInside(candidatePath: string, rootPath: string): boolean {
+  const pathFromRoot = relative(rootPath, candidatePath)
+  return pathFromRoot === "" || (!pathFromRoot.startsWith("..") && !isAbsolute(pathFromRoot))
 }
 
 export function resolveLazyCodexPluginVersion(input: {

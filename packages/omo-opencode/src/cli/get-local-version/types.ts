@@ -11,4 +11,6 @@ export interface VersionInfo {
 export interface GetLocalVersionOptions {
   directory?: string
   json?: boolean
+  codexHome?: string
+  output?: (line: string) => void
 }
