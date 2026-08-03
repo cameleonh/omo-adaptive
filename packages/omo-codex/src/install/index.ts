@@ -23,6 +23,7 @@ export {
 export { posixRuntimeWrapper, RUNTIME_WRAPPER_MARKER, windowsRuntimeWrapper } from "./codex-cache-runtime-wrapper"
 export { updateCodexConfig } from "./codex-config-toml"
 export { trustedHookStatesForPlugin } from "./codex-hook-trust"
+export { materializeCodexUserHooks, removeMaterializedCodexUserHooks } from "./codex-hook-materialization"
 export { assertHookCommandTargets, findMissingHookCommandTargets } from "./codex-hook-targets"
 export { stampGitBashMcpEnv } from "./codex-git-bash-mcp-env"
 export { getActiveCachedLazyCodexVersion } from "./lazycodex-version-stamp"

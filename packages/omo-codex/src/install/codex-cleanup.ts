@@ -7,6 +7,7 @@ import { validateManagedCleanupTarget } from "./codex-cleanup-safety"
 import { repairProjectLocalCodexArtifactsBestEffort } from "./codex-project-local-cleanup-best-effort"
 import type { SkippedCleanupPath } from "./codex-cleanup-safety"
 import type { ProjectLocalCodexCleanupResult } from "./codex-project-local-cleanup"
+import { removeMaterializedCodexUserHooks } from "./codex-hook-materialization"
 
 const INSTALLED_AGENTS_MANIFEST = ".installed-agents.json"
 
@@ -37,6 +38,7 @@ export async function cleanupCodexLight(input: CodexCleanupOptions = {}): Promis
   const agentPaths = await collectInstalledAgentPaths(codexHome, configPath)
   const configCleanup = await cleanupCodexConfig(configPath, input.now)
   const agentCleanup = await removeManifestListedAgentLinks(codexHome, agentPaths)
+  await removeMaterializedCodexUserHooks({ codexHome, marketplaceName: "sisyphuslabs", pluginName: "omo" }).catch(() => undefined)
 
   const removedPaths: string[] = []
   const skippedPaths: SkippedCleanupPath[] = []

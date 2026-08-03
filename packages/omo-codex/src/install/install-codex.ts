@@ -19,6 +19,7 @@ import { removeGitBashHooksOffWindows } from "./codex-git-bash-hooks"
 import { seedAndMigrateOmoSot } from "./omo-sot-migration"
 import { installAstGrepForCodex } from "./install-ast-grep-sg"
 import { trackCodexInstallTelemetry } from "./codex-install-telemetry"
+import { materializeCodexUserHooks } from "./codex-hook-materialization"
 import { resolveCodegraphNodeSupport } from "@oh-my-opencode/utils"
 import type { CodexInstallOptions, CodexInstallResult, CodexMarketplaceSource, InstalledPlugin, MarketplaceManifest } from "./types"
 
@@ -54,6 +55,7 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
   const distributionManifest = await readDistributionManifest(repoRoot)
 
   const installed: InstalledPlugin[] = []
+  const installedManifests = new Map<string, Awaited<ReturnType<typeof readPluginManifest>>>()
   const pluginSources: MarketplaceSnapshotPluginSource[] = []
   const agentConfigs = new Map<string, { readonly name: string; readonly configFile: string }>()
   for (const entry of marketplace.plugins) {
@@ -105,6 +107,7 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
     }
     pluginSources.push({ name: entry.name, sourcePath })
     installed.push(plugin)
+    installedManifests.set(plugin.name, await readPluginManifest(plugin.path))
   }
 
   await installAstGrepForCodex({
@@ -152,19 +155,6 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
     )
   ).flat()
 
-  await pruneMarketplaceCache({
-    codexHome,
-    marketplaceName: marketplace.name,
-    keepPluginNames: marketplace.plugins.map((plugin) => plugin.name),
-  })
-  for (const legacyMarketplaceName of legacyCacheMarketplaces(marketplace.name)) {
-    await pruneMarketplacePluginCaches({
-      codexHome,
-      marketplaceName: legacyMarketplaceName,
-      pluginNames: marketplace.plugins.map((plugin) => plugin.name),
-    })
-  }
-
   const legacyDaemonCleanup = await reapLspDaemons(codexHome).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     log(`Warning: skipped legacy Codex LSP daemon cleanup: ${message}`)
@@ -197,6 +187,30 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
     autonomousPermissions: options.autonomousPermissions !== false,
     ...(options.reasoning === undefined ? {} : { reasoning: options.reasoning }),
   })
+  for (const plugin of installed) {
+    const manifest = installedManifests.get(plugin.name)
+    if (manifest === undefined) throw new Error(`missing installed manifest for ${plugin.name}`)
+    await materializeCodexUserHooks({
+      codexHome,
+      marketplaceName: marketplace.name,
+      platform,
+      pluginName: plugin.name,
+      pluginRoot: plugin.path,
+      manifest,
+    })
+  }
+  await pruneMarketplaceCache({
+    codexHome,
+    marketplaceName: marketplace.name,
+    keepPluginNames: marketplace.plugins.map((plugin) => plugin.name),
+  })
+  for (const legacyMarketplaceName of legacyCacheMarketplaces(marketplace.name)) {
+    await pruneMarketplacePluginCaches({
+      codexHome,
+      marketplaceName: legacyMarketplaceName,
+      pluginNames: marketplace.plugins.map((plugin) => plugin.name),
+    })
+  }
   await seedAndMigrateOmoSot({ env, log, repoRoot, runCommand })
 
   const projectCleanup = await repairProjectLocalCodexArtifactsBestEffort({
