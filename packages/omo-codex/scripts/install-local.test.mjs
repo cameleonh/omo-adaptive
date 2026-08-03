@@ -134,18 +134,18 @@ test("#given CODEX_LOCAL_BIN_DIR with surrounding whitespace #when resolving loc
 	);
 });
 
-test("#given omo plugin source #when inspecting identity #then uses sisyphuslabs omo metadata", async () => {
+test("#given omo plugin source #when inspecting identity #then keeps the compatible package scope and fork metadata", async () => {
 	const pluginRoot = join(scriptDir, "..", "plugin");
 
 	const manifest = JSON.parse(await readFile(join(pluginRoot, ".codex-plugin", "plugin.json"), "utf8"));
 	const packageJson = JSON.parse(await readFile(join(pluginRoot, "package.json"), "utf8"));
 
 	assert.equal(packageJson.name, "@sisyphuslabs/omo-codex-plugin");
-	assert.equal(manifest.homepage, "https://github.com/sisyphuslabs/omo");
-	assert.equal(manifest.repository, "https://github.com/sisyphuslabs/omo");
-	assert.equal(manifest.interface.websiteURL, "https://github.com/sisyphuslabs/omo");
-	assert.equal(manifest.interface.privacyPolicyURL, "https://github.com/sisyphuslabs/omo#privacy");
-	assert.equal(manifest.interface.termsOfServiceURL, "https://github.com/sisyphuslabs/omo#license");
+	assert.equal(manifest.homepage, "https://github.com/cameleonh/omo-adaptive");
+	assert.equal(manifest.repository, "https://github.com/cameleonh/omo-adaptive");
+	assert.equal(manifest.interface.websiteURL, "https://github.com/cameleonh/omo-adaptive");
+	assert.equal(manifest.interface.privacyPolicyURL, "https://github.com/cameleonh/omo-adaptive#telemetry");
+	assert.equal(manifest.interface.termsOfServiceURL, "https://github.com/cameleonh/omo-adaptive/blob/main/LICENSE.md");
 });
 
 test("#given plugin hooks #when installing #then records trusted hook hashes", async () => {

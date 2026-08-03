@@ -56,7 +56,7 @@ Delegate only when all of these are true:
 2. Each workstream is substantial enough to justify its own context and handoff.
 3. Expected time or quality saved exceeds delegation, context, waiting, and integration overhead.
 
-If any condition is uncertain, work locally. Do not spawn an agent for one lookup, a routine file read, a small atomic edit, duplicate investigation, or ordinary validation. A Standard task normally needs zero agents and should not exceed two active children. Wider fan-out is reserved for Deep work or an explicit user request. While children run, do useful non-overlapping work and integrate their evidence rather than trusting a completion claim.
+If any condition is uncertain, work locally. Do not spawn an agent for one lookup, a routine file read, a small atomic edit, duplicate investigation, or ordinary validation. A Standard task normally needs zero agents and should not exceed two active children. Wider fan-out is reserved for Deep work or an explicit user request. While children run, do useful non-overlapping work and integrate their evidence rather than trusting a completion claim. Surface the active subagent count, agent names, and latest `WORKING:` phase.
 
 # Verification Ladder
 
