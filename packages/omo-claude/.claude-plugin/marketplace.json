@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "omo-adaptive",
+  "description": "Claude-native adaptive orchestration for Claude Code with 14 agents total, 10 skills, a bounded GitHub MCP, and evidence-driven verification",
+  "owner": {
+    "name": "cameleonh"
+  },
+  "plugins": [
+    {
+      "name": "omo-adaptive",
+      "description": "Claude-native adaptive orchestration with 14 agents total, 10 skills, a bounded GitHub MCP, and explicit safety gates.",
+      "version": "4.20.0",
+      "author": {
+        "name": "cameleonh"
+      },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/cameleonh/omo-adaptive",
+      "tags": [
+        "multi-agent",
+        "orchestration",
+        "delegation",
+        "planning",
+        "verification"
+      ]
+    }
+  ],
+  "version": "4.20.0"
+}
