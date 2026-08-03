@@ -11328,11 +11328,6 @@ async function runCodexInstaller(options = {}) {
     log(`Warning: deferred legacy Codex LSP daemon cleanup for v${cleanup.version}: ${cleanup.reason}`);
   }
   const marketplaceRoot = join36(codexHome, "plugins", "cache", marketplace.name);
-  await writeCachedMarketplaceManifest({
-    marketplaceName: marketplace.name,
-    marketplaceRoot,
-    plugins: installed
-  });
   const configPath = join36(codexHome, "config.toml");
   await updateCodexConfig({
     configPath,
@@ -11373,6 +11368,11 @@ async function runCodexInstaller(options = {}) {
       pluginNames: marketplace.plugins.map((plugin) => plugin.name)
     });
   }
+  await writeCachedMarketplaceManifest({
+    marketplaceName: marketplace.name,
+    marketplaceRoot,
+    plugins: installed
+  });
   await seedAndMigrateOmoSot({ env: env2, log, repoRoot, runCommand });
   const projectCleanup = await repairProjectLocalCodexArtifactsBestEffort({
     startDirectory: projectDirectory,

@@ -166,12 +166,6 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
   }
 
   const marketplaceRoot = join(codexHome, "plugins", "cache", marketplace.name)
-  await writeCachedMarketplaceManifest({
-    marketplaceName: marketplace.name,
-    marketplaceRoot,
-    plugins: installed,
-  })
-
   const configPath = join(codexHome, "config.toml")
   await updateCodexConfig({
     configPath,
@@ -211,6 +205,11 @@ export async function runCodexInstaller(options: CodexInstallOptions = {}): Prom
       pluginNames: marketplace.plugins.map((plugin) => plugin.name),
     })
   }
+  await writeCachedMarketplaceManifest({
+    marketplaceName: marketplace.name,
+    marketplaceRoot,
+    plugins: installed,
+  })
   await seedAndMigrateOmoSot({ env, log, repoRoot, runCommand })
 
   const projectCleanup = await repairProjectLocalCodexArtifactsBestEffort({
