@@ -279,10 +279,12 @@ function normalizeLegacyMultiAgentV2Config(config) {
 		}
 	}
 
+	const rootScalarEnabled = readBoolean(readRootTomlSettingValue(result, "features.multi_agent_v2"));
 	const rootEnabled = readBoolean(readRootTomlSettingValue(result, "features.multi_agent_v2.enabled"));
 	const rootLimit = readPositiveInteger(readRootTomlSettingValue(result, "features.multi_agent_v2.max_concurrent_threads_per_session"));
-	legacyEnabled ??= rootEnabled;
+	legacyEnabled ??= rootEnabled ?? rootScalarEnabled;
 	legacyThreadLimit ??= rootLimit;
+	if (rootScalarEnabled !== null) result = removeRootTomlSetting(result, "features.multi_agent_v2", String(rootScalarEnabled));
 	if (rootLimit !== null) result = removeRootTomlSetting(result, "features.multi_agent_v2.max_concurrent_threads_per_session", String(rootLimit));
 	result = removeUnsupportedRootTomlDottedSettings(result, "features.multi_agent_v2", SUPPORTED_MULTI_AGENT_V2_FIELDS);
 	if (legacyThreadLimit !== null) result = mergeLegacyThreadLimit(result, legacyThreadLimit);

@@ -360,6 +360,50 @@ test("#given config without any model but an existing low valid cap #when migrat
 	assert.match(content, /max_depth = 4/);
 });
 
+test("#given an underscore-form TOML integer cap #when migrating #then preserves the positive user cap", async () => {
+	const root = await mkdtemp(join(tmpdir(), "lazycodex-subagent-limit-underscore-cap-"));
+	const configPath = join(root, "config.toml");
+	await writeFile(
+		configPath,
+		[
+			'model = "gpt-5.4"',
+			"",
+			"[agents]",
+			"max_threads = 6_0 # user cap",
+			"",
+			"[features.multi_agent_v2]",
+			"enabled = false",
+			"",
+		].join("\n"),
+	);
+
+	await migrateConfigFile(configPath);
+	const content = await readFile(configPath, "utf8");
+	const parsed = parseTomlWithPython(content);
+
+	assert.equal(parsed.agents.max_threads, 60);
+	assert.match(content, /max_threads = 6_0 # user cap/);
+});
+
+for (const invalidCap of ["1.0", "1e1"]) {
+	test(`#given a non-integer TOML cap ${invalidCap} #when migrating #then replaces it with the managed integer default`, async () => {
+		const root = await mkdtemp(join(tmpdir(), "lazycodex-subagent-limit-invalid-cap-"));
+		const configPath = join(root, "config.toml");
+		await writeFile(
+			configPath,
+			['model = "gpt-5.4"', "", "[agents]", `max_threads = ${invalidCap} # invalid user cap`, ""].join("\n"),
+		);
+
+		const result = await migrateConfigFile(configPath);
+		const content = await readFile(configPath, "utf8");
+		const parsed = parseTomlWithPython(content);
+
+		assert.equal(result.changed, true);
+		assert.equal(parsed.agents.max_threads, 6);
+		assert.match(content, /max_threads = 6 # invalid user cap/);
+	});
+}
+
 test("#given a V2 table mixes supported options with obsolete settings #when migrating #then preserves only supported options and moves the cap", async () => {
 	const root = await mkdtemp(join(tmpdir(), "lazycodex-v120-v2-options-"));
 	const configPath = join(root, "config.toml");

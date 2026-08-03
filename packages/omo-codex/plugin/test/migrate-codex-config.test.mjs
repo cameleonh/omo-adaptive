@@ -990,6 +990,42 @@ test("#given SessionStart without model #when requireSessionModel is set #then s
 	assert.doesNotMatch(result, /\[features\.multi_agent_v2\]/);
 });
 
+for (const enabled of [true, false]) {
+	test(`#given a root-dotted V2 boolean ${enabled} without model evidence #when preservation skips force-disable #then it becomes a valid enabled setting`, () => {
+		const result = forceDisableMultiAgentV2(`features.multi_agent_v2 = ${enabled} # legacy boolean\n`, {
+			multiAgentVersion: null,
+			sessionModel: null,
+		});
+
+		const parsed = parseTomlWithPython(result);
+		assert.equal(parsed.features.multi_agent_v2.enabled, enabled);
+		assert.match(result, new RegExp(`^\\[features\\.multi_agent_v2\\]\\nenabled = ${enabled}$`, "m"));
+		assert.doesNotMatch(result, new RegExp(`^features\\.multi_agent_v2 = ${enabled}`, "m"));
+	});
+
+	test(`#given a root-dotted V2 boolean ${enabled} #when requireSessionModel preserves the config #then full migration writes non-conflicting TOML`, async () => {
+		const root = await mkdtemp(join(tmpdir(), "lazycodex-root-dotted-v2-boolean-"));
+		const codexHome = join(root, "codex-home");
+		await mkdir(codexHome, { recursive: true });
+		const configPath = join(codexHome, "config.toml");
+		await writeFile(configPath, ['model = "gpt-5.5"', `features.multi_agent_v2 = ${enabled} # legacy boolean`, ""].join("\n"));
+
+		await migrateCodexConfig({
+			env: { CODEX_HOME: codexHome, LAZYCODEX_MODEL_CATALOG_STATE_PATH: join(root, "model-state.json") },
+			cwd: root,
+			sessionModel: null,
+			requireSessionModel: true,
+		});
+
+		const content = await readFile(configPath, "utf8");
+		const parsed = parseTomlWithPython(content);
+		assert.equal(parsed.features.multi_agent_v2.enabled, enabled);
+		assert.equal(parsed.agents.max_threads, 6);
+		assert.match(content, new RegExp(`^\\[features\\.multi_agent_v2\\]\\nenabled = ${enabled}$`, "m"));
+		assert.doesNotMatch(content, new RegExp(`^features\\.multi_agent_v2 = ${enabled}`, "m"));
+	});
+}
+
 test("#given legacy [features] shorthand #when requireSessionModel skips force-disable #then still removes the shorthand", () => {
 	const config = ['model = "gpt-5.5"', "", "[features]", "plugins = true", "multi_agent_v2 = true", ""].join("\n");
 

@@ -44,10 +44,19 @@ function ensureAgentsMaxThreads(config) {
 
 function ensureValidAgentsMaxThreads(config, section) {
 	const value = readTomlSectionSettingValue(section, "max_threads");
-	if (value !== null && Number.isSafeInteger(Number(value)) && Number(value) > 0) {
+	if (isPositiveTomlInteger(value)) {
 		return config;
 	}
 	return replaceOrInsertTomlSectionSetting(config, section, "max_threads", CODEX_SUBAGENT_THREAD_LIMIT);
+}
+
+function isPositiveTomlInteger(value) {
+	if (typeof value !== "string") return false;
+	if (!/^(?:\+?(?:0|[1-9](?:_?\d)*)|0x[0-9a-fA-F](?:_?[0-9a-fA-F])*|0o[0-7](?:_?[0-7])*|0b[01](?:_?[01])*)$/.test(value)) {
+		return false;
+	}
+	const parsed = Number(value.replaceAll("_", ""));
+	return Number.isSafeInteger(parsed) && parsed > 0;
 }
 
 function appendBlock(config, block) {
