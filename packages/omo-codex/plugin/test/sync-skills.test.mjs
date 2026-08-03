@@ -36,6 +36,14 @@ async function assertNoLegacyResearchAliasInTree(rootDir, label) {
 	}
 }
 
+function frontmatterDescription(content, label) {
+	const frontmatter = content.match(/^---\n(?<body>[\s\S]*?)\n---\n/);
+	assert(frontmatter?.groups?.body, `${label} must have YAML frontmatter`);
+	const rawDescription = frontmatter.groups.body.match(/^description:\s*(?<value>.+)$/m)?.groups?.value;
+	assert(rawDescription, `${label} must have a frontmatter description`);
+	return rawDescription.startsWith('"') ? JSON.parse(rawDescription) : rawDescription;
+}
+
 test("#given synced aggregate Codex skills #when inspected #then component and shared skills are present", async () => {
 	// given
 	const skillsRoot = join(root, "skills");
@@ -51,6 +59,19 @@ test("#given synced aggregate Codex skills #when inspected #then component and s
 	for (const skillName of expectedSkills) {
 		const content = await readFile(join(skillsRoot, skillName, "SKILL.md"), "utf8");
 		assert.match(removeCodexCompatibilityGuidance(content), /^---\r?\n/);
+	}
+});
+
+test("#given teammode skill sources #when frontmatter is packaged #then the description stays within Codex's 1024-byte limit", async () => {
+	const skillPaths = [
+		join(root, "components", "teammode", "skills", "teammode", "SKILL.md"),
+		join(root, "skills", "teammode", "SKILL.md"),
+	];
+
+	for (const skillPath of skillPaths) {
+		const content = await readFile(skillPath, "utf8");
+		const description = frontmatterDescription(content, skillPath);
+		assert.ok(Buffer.byteLength(description, "utf8") <= 1024, `${skillPath} description exceeds 1024 UTF-8 bytes`);
 	}
 });
 
