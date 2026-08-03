@@ -8,7 +8,7 @@ import { dirname, join } from "node:path"
 import { cleanupCodexLight, cleanupCodexLightConfigText, removeManagedPathBestEffort } from "./codex-cleanup"
 
 describe("codex cleanup", () => {
-  test("#given managed Codex Light state and project-local Codex leftovers #when cleanup runs #then removes only managed global state and repairs local config", async () => {
+  test("#given managed Codex Light state and project-local Codex leftovers #when cleanup runs #then removes only managed global state and preserves valid local config", async () => {
     // given
     const codexHome = await mkdtemp(join(tmpdir(), "omo-codex-cleanup-home-"))
     const projectRoot = await mkdtemp(join(tmpdir(), "omo-codex-cleanup-project-"))
@@ -114,9 +114,10 @@ describe("codex cleanup", () => {
     expect(await readFile(result.configBackupPath ?? "", "utf8")).toContain("[marketplaces.sisyphuslabs]")
 
     const projectConfig = await readFile(projectConfigPath, "utf8")
-    expect(result.projectCleanup.changed).toBe(true)
+    expect(result.projectCleanup.changed).toBe(false)
+    expect(result.projectCleanup.removedKeys).toEqual([])
     expect(result.projectCleanup.artifacts.map((artifact) => artifact.relativePath).sort()).toEqual([".codex/hooks.json"])
-    expect(projectConfig).not.toMatch(/^max_threads\s*=/m)
+    expect(projectConfig).toContain("max_threads = 8")
     expect(projectConfig).toContain("max_depth = 3")
     expect(await pathExists(join(projectRoot, ".codex", "hooks.json"))).toBe(true)
   })
