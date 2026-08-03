@@ -64,6 +64,10 @@ The benchmark refuses the real `~/.codex` and requires a variant-matched, preins
 bun run install:codex-dev
 ```
 
+### Claude Code fork adapter
+
+This fork also ships a Claude Code Plugin/Adapter as a separate versioned adapter in [`packages/omo-claude/`](packages/omo-claude/README.md). It maps Claude-native agents, skills, settings, and hooks and bundles a bounded read-only GitHub MCP; it is not included in the root OpenCode Ultimate/Codex Light npm payload. See the [Claude Code adapter guide](packages/omo-claude/README.md) for local marketplace installation, cache/version checks, and release updates.
+
 ---
 
 > [!NOTE]
@@ -79,7 +83,7 @@ bun run install:codex-dev
 > [!NOTE]
 > **Multi-Harness Agent OS Refactor in Progress**
 >
-> We are restructuring the codebase to support multiple agent harnesses (OpenCode, Codex, Pi, and others). If you are interested in contributing, please read the [ROADMAP](./ROADMAP.md) first. PRs related to roadmap work should use the `ROADMAP` label.
+> We are restructuring the codebase to support multiple agent harnesses (OpenCode, Codex, Claude Code, Pi, and others). If you are interested in contributing, please read the [ROADMAP](./ROADMAP.md) first. PRs related to roadmap work should use the `ROADMAP` label.
 
 > [!TIP]
 > **Building in Public**

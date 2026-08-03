@@ -1,0 +1,11 @@
+{
+  "name": "omo-adaptive",
+  "description": "Claude-native adaptive orchestration with 14 agents total, 10 skills, a bounded GitHub MCP, and evidence-driven verification.",
+  "version": "4.20.0",
+  "author": {
+    "name": "cameleonh"
+  },
+  "homepage": "https://github.com/cameleonh/omo-adaptive",
+  "license": "SUL-1.0",
+  "skills": "./skills/"
+}

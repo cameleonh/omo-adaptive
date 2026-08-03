@@ -31,7 +31,7 @@ The refactor splits packages into strict layers by runtime boundary:
 | Core | Pure TypeScript logic: rule discovery, AGENTS.md parsing, config schemas, model capabilities, todo state machines | No harness dependencies. Testable in isolation. |
 | MCP | External tool servers: LSP and other stdio services | stdio process boundary. Host-agnostic. |
 | Skills | Static declarative files (SKILL.md) | Markdown consumed by the agent. No code. |
-| Adapters | Harness-specific glue: OpenCode, Codex, Senpi, and standalone Pi goal/webfetch adapters | Thin wrappers. Import core, wrap in harness API, export. |
+| Adapters | Harness-specific glue: OpenCode, Codex, Claude Code, Senpi, and standalone Pi goal/webfetch adapters. Mostly declarative adapters may map native agents, skills, and hooks directly; distribution-local hooks and MCP launchers are explicit exceptions. | Import Core where executable reuse is needed, map the host's native surface directly, and keep bundled runtime helpers behind their documented process boundary. |
 | Platform | Generated Node launcher packages per target | Deployment artifacts. Never imported. |
 | Web | Marketing site | Independent application. |
 
@@ -45,7 +45,7 @@ The refactor splits packages into strict layers by runtime boundary:
 - `omo` consumes these packages via workspace dependencies, with adapter shims left at original `packages/omo-opencode/src/` locations where OpenCode-facing import paths or runtime wiring still need stable anchors.
 - The `lsp-tools-mcp` and `lsp-daemon` packages are vendored in-tree and now consume `lsp-core` plus `mcp-stdio-core` instead of deep-importing each other's source internals.
 
-Current layering: Core (19 pure-TS packages, including `omo-config-core`) -> MCP packages -> Adapters (OpenCode, Codex, Senpi, standalone Pi goal/webfetch) -> generated platform launcher packages, with the intentional same-layer Senpi adapter-support edge and transitional OpenCode-to-Codex adapter edge documented above. The adapter boundaries keep future harnesses able to consume the same Core layer.
+Current layering: Core (19 pure-TS packages, including `omo-config-core`) -> MCP packages -> Adapters (OpenCode, Codex, Claude Code, Senpi, standalone Pi goal/webfetch) -> generated platform launcher packages, with the intentional same-layer Senpi adapter-support edge and transitional OpenCode-to-Codex adapter edge documented above. The separately distributed Claude Code adapter is mostly declarative, but bundles an adapter-specific Node hook and a standalone read-only GitHub stdio MCP so its cache remains self-contained; that deployment-local copy is an explicit packaging exception rather than a new shared-Core dependency. The adapter boundaries keep future harnesses able to consume the same Core layer.
 
 The Pi Engine DI abstraction was deferred. It can be revisited once the adapter migration is complete.
 
@@ -64,7 +64,7 @@ This order is not dogma. If the loop performs better another way, we change it. 
 
 ## Multi-Harness Support (Exploratory)
 
-Codex and Senpi adapters have landed, along with standalone Pi goal and webfetch adapters. Future harnesses such as Claude Code, Amp, Droid, and others remain exploratory and are not confirmed. The current codebase is still strongly coupled to OpenCode in its largest adapter. Extracting the pure logic into a harness-neutral layer remains a useful prerequisite for any future harness.
+Codex and Senpi adapters have landed, along with standalone Pi goal and webfetch adapters. A mostly declarative Claude Code plugin adapter now lives in `packages/omo-claude`; it uses Claude-native agents, skills, settings, and hooks, plus a self-contained Node hook and read-only stdio MCP required by its independent plugin-cache distribution. Future harnesses such as Amp, Droid, and others remain exploratory and are not confirmed. The current codebase is still strongly coupled to OpenCode in its largest adapter. Extracting pure logic into a harness-neutral layer remains useful when a future adapter needs executable shared behavior.
 
 Most harnesses share common lifecycle hooks: pre-tool-use guards, post-tool-use transforms, system message injection, model parameter overrides. One could abstract these into a unified hook layer. Rule injection could become a harness-agnostic primitive that adapts to each plugin API.
 
