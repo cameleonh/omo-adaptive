@@ -11,6 +11,7 @@ import type { GetLocalVersionOptions, VersionInfo } from "./types"
 import { formatJsonOutput, formatVersionOutput } from "./formatter"
 
 type GetLocalVersionDeps = {
+  readonly getActiveCachedCodexVersion?: typeof getActiveCachedLazyCodexVersion
   readonly getCachedVersion?: () => string | null
 }
 
@@ -19,6 +20,7 @@ export async function getLocalVersion(
   deps: GetLocalVersionDeps = {},
 ): Promise<number> {
   const directory = options.directory ?? process.cwd()
+  const readActiveCachedCodexVersion = deps.getActiveCachedCodexVersion ?? getActiveCachedLazyCodexVersion
   const readCachedVersion = deps.getCachedVersion ?? getCachedVersion
 
   try {
@@ -57,7 +59,9 @@ export async function getLocalVersion(
     }
 
     const codexHome = options.codexHome?.trim() || process.env.CODEX_HOME?.trim()
-    const codexVersion = codexHome === undefined ? null : getActiveCachedLazyCodexVersion({ codexHome })
+    const codexVersion = codexHome === undefined
+      ? readActiveCachedCodexVersion()
+      : readActiveCachedCodexVersion({ codexHome })
     const currentVersion = codexVersion ?? readCachedVersion()
     if (!currentVersion) {
       const info: VersionInfo = {

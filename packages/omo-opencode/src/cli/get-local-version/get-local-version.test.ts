@@ -32,6 +32,29 @@ async function writeActiveCodexPlugin(input: { readonly codexHome: string; reado
 }
 
 describe("getLocalVersion", () => {
+  test("#given an active plugin in the default Codex home #when no home override is provided #then reads the default active cache", async () => {
+    // given
+    const output: string[] = []
+    let requestedCodexHome: string | undefined = "not-called"
+
+    // when
+    const exitCode = await getLocalVersion({
+      json: true,
+      output: (line) => output.push(line),
+    }, {
+      getActiveCachedCodexVersion: (input = {}) => {
+        requestedCodexHome = input.codexHome
+        return "adaptive-default-home"
+      },
+      getCachedVersion: () => "opencode-fallback",
+    })
+
+    // then
+    expect(exitCode).toBe(0)
+    expect(requestedCodexHome).toBeUndefined()
+    expect(JSON.parse(output.join("\n"))).toMatchObject({ currentVersion: "adaptive-default-home", status: "dev" })
+  })
+
   test("#given an active Codex dev cache and stale install metadata #when reporting JSON local version #then uses the cached manifest stamp", async () => {
     // given: this stale distribution snapshot must not control the active plugin version.
     const codexHome = await mkdtemp(join(tmpdir(), "omo-get-local-version-codex-"))
