@@ -1,15 +1,15 @@
 {
 	"name": "omo",
 	"version": "4.19.4",
-	"description": "One Codex plugin namespace for Yeongyu's local Codex components.",
+	"description": "Adaptive Codex orchestration with risk-proportional delegation and verification.",
 	"author": {
 		"name": "Yeongyu Kim",
 		"email": "yeongyu@users.noreply.github.com",
 		"url": "https://github.com/code-yeongyu"
 	},
-	"homepage": "https://github.com/sisyphuslabs/omo",
-	"repository": "https://github.com/sisyphuslabs/omo",
-	"license": "MIT",
+	"homepage": "https://github.com/cameleonh/omo-adaptive",
+	"repository": "https://github.com/cameleonh/omo-adaptive",
+	"license": "SUL-1.0",
 	"keywords": [
 		"codex",
 		"codex-plugin",
@@ -46,10 +46,10 @@
 	],
 	"mcpServers": "./.mcp.json",
 	"interface": {
-		"displayName": "OMO",
-		"shortDescription": "Unified local Codex components",
-		"longDescription": "OMO exposes local Codex Rules, Comment Checker, Git Bash, LSP, Ultrawork, ulw-loop, start-work continuation, and telemetry components as one plugin namespace while keeping each component isolated under components/ for maintenance.",
-		"developerName": "Yeongyu Kim",
+		"displayName": "OMO Adaptive",
+		"shortDescription": "Adaptive local Codex orchestration",
+		"longDescription": "OMO Adaptive exposes Codex Rules, Comment Checker, Git Bash, LSP, Ultrawork, ulw-loop, start-work continuation, and telemetry under the compatible omo namespace, with risk-proportional delegation and verification defaults.",
+		"developerName": "cameleonh (fork), Yeongyu Kim (upstream)",
 		"category": "Developer Tools",
 		"capabilities": [
 			"Hooks",
@@ -58,9 +58,9 @@
 			"Workflow",
 			"Context Injection"
 		],
-		"websiteURL": "https://github.com/sisyphuslabs/omo",
-		"privacyPolicyURL": "https://github.com/sisyphuslabs/omo#privacy",
-		"termsOfServiceURL": "https://github.com/sisyphuslabs/omo#license",
+		"websiteURL": "https://github.com/cameleonh/omo-adaptive",
+		"privacyPolicyURL": "https://github.com/cameleonh/omo-adaptive#telemetry",
+		"termsOfServiceURL": "https://github.com/cameleonh/omo-adaptive/blob/main/LICENSE.md",
 		"defaultPrompt": [
 			"Use OMO LSP diagnostics on this workspace.",
 			"Show which OMO rules matched this file.",

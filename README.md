@@ -1,3 +1,53 @@
+# OMO Adaptive
+
+> [!IMPORTANT]
+> **Modified fork notice**
+>
+> OMO Adaptive is a modified, non-commercial fork of [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent), based on upstream commit [`a6dbc0ca0`](https://github.com/code-yeongyu/oh-my-openagent/commit/a6dbc0ca0c75d91575d24598d39e244ed5905ced). It is not affiliated with or endorsed by the upstream maintainers. The upstream copyright, [Sustainable Use License](LICENSE.md), and [third-party notices](THIRD-PARTY-NOTICES.md) remain in effect.
+
+This fork keeps OMO's orchestration features but changes the default decision policy: parallel agents, formal planning, broad test suites, and manual QA are used only when their expected value exceeds their coordination cost.
+
+## What changed in this fork
+
+| Area | Upstream behavior | OMO Adaptive behavior |
+|---|---|---|
+| Subagent delegation | Independent work often triggered immediate parallel fan-out | Delegate only when there are at least two independent, substantial workstreams and the expected saving exceeds handoff and integration overhead |
+| Routine task fan-out | Small lookups, validation, and narrow edits could still attract agents | Light and Standard work defaults to local execution; Standard work normally uses zero agents and has a soft ceiling of two active children |
+| Planning | Multi-file or two-step work commonly forced a formal plan | Plan only for three or more substantive dependent steps, cross-module work, or unresolved design |
+| Verification | Build, broad tests, manual QA, and review lanes were treated as universal completion gates | Use a three-tier ladder: inspect/parse for Light work, targeted diagnostics and tests for Standard work, broader suites and real-surface QA for Deep or high-risk work |
+| Programming skill | TDD plus unit, integration, E2E, and a full post-write review were mandatory for every code edit | Failing-first tests remain the default for bugs and new behavior; mechanical, generated, prose, and config-only edits use the narrowest existing contract check |
+| Debugging skill | At least three hypotheses, parallel investigation, multi-Oracle escalation, a full suite, and manual QA were built into the normal loop | Start with the smallest discriminating observation and one falsifiable hypothesis; expand, delegate, or broaden tests only when ambiguity and risk justify it |
+| Frontend and visual QA | Greenfield work fired every research lane, optional React tooling was auto-installed, and any UI change required every-page dual-review QA | Research, tooling, captures, and reviews are scoped to the affected surface; dual review is reserved for significant redesigns, releases, and reference-fidelity work |
+| Codex concurrency | Installer-managed V1 and V2 defaults were `1000` and `16` | Both newly managed defaults are `6`; an existing explicit V2 cap is preserved |
+| Contributor workflow | Worktree, on-disk plan, goal loop, PR, live harness QA, and durable evidence were mandatory for every patch | Those mechanisms are selected by scope and risk; real Codex/OpenCode QA still uses isolated homes and never touches the user's real state |
+
+The main policy changes live in:
+
+- `packages/omo-codex/plugin/components/rules/bundled-rules/hephaestus/` for GPT-5.5 and GPT-5.6 behavior.
+- `packages/shared-skills/skills/{programming,debugging,frontend,visual-qa}/` for cross-harness skill routing.
+- `packages/omo-codex/src/install/codex-multi-agent-v2-config.ts` and the SessionStart migration guard for concurrency defaults.
+- `AGENTS.md` and `packages/omo-codex/AGENTS.md` for the repository's own contributor workflow.
+
+### Compatibility
+
+The internal Codex plugin name remains `omo`, the marketplace identity remains `omo@sisyphuslabs`, and existing OMO config paths and CLI aliases remain unchanged. The visible product name is **OMO Adaptive**. Deep modes such as Ultrawork, ULW loops, wide fan-out, full review lanes, and release-grade QA are still available when explicitly requested or justified by risk.
+
+### Install this fork for Codex
+
+The published `lazycodex-ai` package is upstream and does not contain these changes. To install this fork from source:
+
+```bash
+git clone https://github.com/cameleonh/omo-adaptive.git
+cd omo-adaptive
+git submodule update --init --recursive
+bun install
+bun run install:codex-dev
+```
+
+`bun run install:codex-dev` removes the current Codex Light install and installs this checkout into the real `~/.codex` with a visible `dev` version stamp. Review the command before running it. Contributors should use the isolated `CODEX_HOME` flow in `packages/omo-codex/README.md` for QA.
+
+---
+
 > [!NOTE]
 > **OmO for Codex is here: try LazyCodex**
 >

@@ -1,6 +1,8 @@
-# omo
+# OMO Adaptive
 
-`omo` is the single local Codex plugin namespace for Yeongyu's Codex components.
+`omo` remains the internal Codex plugin namespace for compatibility. The visible fork name is **OMO Adaptive**.
+
+This fork keeps OMO's components and configuration paths while changing the default work budget: subagents require independent substantial work with a positive coordination payoff, verification scales with risk, shared programming/debugging/frontend skills no longer force deep workflows for small changes, and installer-managed V1/V2 concurrency defaults are both `6`. See the repository root `README.md` for the full upstream comparison and license notice.
 
 Internally each component remains isolated under `components/`:
 
