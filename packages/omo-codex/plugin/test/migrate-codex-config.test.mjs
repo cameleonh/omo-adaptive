@@ -243,7 +243,7 @@ test("#given user-customized Codex model config #when migrating #then user value
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
 	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
 	assert.match(content, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
-	assert.match(content, /max_concurrent_threads_per_session = 6/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 test("#given managed config state is malformed #when migrating #then migration ignores stale state safely", async () => {
@@ -405,7 +405,7 @@ test("#given config already matches current catalog #when catalog version advanc
 	const content = await readFile(configPath, "utf8");
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
 	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
-	assert.match(content, /max_concurrent_threads_per_session = 6/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 test("#given stale Context7 placeholder MCP config #when migrating #then removes it and keeps plugin policy", async () => {
@@ -497,7 +497,8 @@ test("#given multi_agent_v2 enabled #when forcing disable #then flips the flag t
 
 	assert.match(result, /enabled = false/);
 	assert.doesNotMatch(result, /enabled = true/);
-	assert.match(result, /max_concurrent_threads_per_session = 10000/);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 10000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
 test("#given no multi_agent_v2 section #when forcing disable #then appends a disabled section", () => {
@@ -528,7 +529,8 @@ test("#given multi_agent_v2 section without enabled key #when forcing disable #t
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: null });
 
 	assert.match(result, /\[features\.multi_agent_v2\]\nenabled = false\n/);
-	assert.match(result, /max_concurrent_threads_per_session = 10000/);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 10000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
 test("#given [features] boolean shorthand multi_agent_v2 = true #when forcing disable #then removes it and appends a disabled section", () => {
@@ -603,7 +605,7 @@ test("#given [features] boolean shorthand multi_agent_v2 = false #when forcing d
 	assert.equal(parsed.features.multi_agent_v2.enabled, false);
 });
 
-test("#given multi_agent_v2 already disabled #when forcing disable #then returns config unchanged", () => {
+test("#given multi_agent_v2 already disabled with a legacy cap #when forcing disable #then migrates only the cap", () => {
 	const config = [
 		'model = "gpt-5.5"',
 		'model_reasoning_effort = "high"',
@@ -616,7 +618,9 @@ test("#given multi_agent_v2 already disabled #when forcing disable #then returns
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: null });
 
-	assert.equal(result, config);
+	assert.match(result, /enabled = false/);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 10000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
 test("#given global config without multi_agent_v2 section #when full migration runs #then writes a disabled section on disk", async () => {
@@ -642,7 +646,7 @@ test("#given global config without multi_agent_v2 section #when full migration r
 	assert.deepEqual(result.modeChanged, []);
 	const content = await readFile(configPath, "utf8");
 	assert.match(content, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
-	assert.match(content, /max_concurrent_threads_per_session = 6/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
 	assert.doesNotMatch(content, /^\s*multi_agent_mode\s*=/m);
 });
@@ -749,8 +753,8 @@ test("#given global config with forced multi_agent_v2 #when full migration runs 
 	const content = await readFile(configPath, "utf8");
 	assert.match(content, /enabled = false/);
 	assert.doesNotMatch(content, /enabled = true/);
-	assert.match(content, /max_concurrent_threads_per_session = 10000/);
-	assert.match(content, /\[agents\][\s\S]*?max_threads = 6/);
+	assert.match(content, /\[agents\][\s\S]*?max_threads = 10000/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 test("#given enabled = true with an inline comment #when forcing disable #then flips to false and preserves the comment", () => {
@@ -788,12 +792,12 @@ test("#given an already-guarded commented config #when re-running #then output i
 	assert.equal(rerunB, firstB);
 });
 
-test("#given user-disabled with an inline comment #when forcing disable #then returns config unchanged", () => {
+test("#given user-disabled with an inline comment #when forcing disable #then preserves the setting and comment", () => {
 	const config = ["[features.multi_agent_v2]", "enabled = false # I turned this off myself", ""].join("\n");
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: "v1" });
 
-	assert.equal(result, config);
+	assert.match(result, /^enabled = false # I turned this off myself$/m);
 });
 
 test("#given [features] shorthand true with an inline comment #when forcing disable #then removes the shorthand and appends one disabled table", () => {
@@ -838,14 +842,15 @@ test("#given gpt-5.6-terra with managed disable #when model catalog prefers v2 #
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: "v2" });
 
-	assert.doesNotMatch(result, /^\s*enabled\s*=\s*false/m);
+	assert.match(result, /^\s*enabled\s*=\s*true/m);
 	assert.doesNotMatch(result, /openai\/codex#26753/);
 	assert.doesNotMatch(result, /Managed by LazyCodex: multi_agent_v2/);
 	assert.match(result, /\[features\.multi_agent_v2\]/);
-	assert.match(result, /max_concurrent_threads_per_session = 1000/);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
-test("#given gpt-5.6 v2 model with hide_spawn_agent_metadata=false #when clearing #then removes the stale metadata override", () => {
+test("#given gpt-5.6 v2 model with hide_spawn_agent_metadata=false #when clearing #then preserves the supported override", () => {
 	const config = [
 		'model = "gpt-5.6-sol"',
 		"",
@@ -858,9 +863,10 @@ test("#given gpt-5.6 v2 model with hide_spawn_agent_metadata=false #when clearin
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: "v2" });
 
-	assert.doesNotMatch(result, /^\s*enabled\s*=\s*false/m);
-	assert.doesNotMatch(result, /^\s*hide_spawn_agent_metadata\s*=/m);
-	assert.match(result, /max_concurrent_threads_per_session = 1000/);
+	assert.match(result, /^\s*enabled\s*=\s*true/m);
+	assert.match(result, /^\s*hide_spawn_agent_metadata\s*=\s*false/m);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
 test("#given gpt-5.6 v2 model with hide_spawn_agent_metadata=true #when clearing #then leaves the default-matching value alone", () => {
@@ -876,7 +882,7 @@ test("#given gpt-5.6 v2 model with hide_spawn_agent_metadata=true #when clearing
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: "v2" });
 
-	assert.doesNotMatch(result, /^\s*enabled\s*=\s*false/m);
+	assert.match(result, /^\s*enabled\s*=\s*true/m);
 	assert.match(result, /hide_spawn_agent_metadata = true/);
 });
 
@@ -896,17 +902,17 @@ test("#given v1 model with hide_spawn_agent_metadata=false #when forcing disable
 	assert.match(result, /enabled = false/);
 });
 
-test("#given gpt-5.6-sol with no multi_agent_v2 section #when model catalog prefers v2 #then does not append a disable", () => {
+test("#given gpt-5.6-sol with no multi_agent_v2 section #when model catalog prefers v2 #then enables the supported V2 table", () => {
 	const config = ['model = "gpt-5.6-sol"', "", "[features]", "plugins = true", ""].join("\n");
 
 	const result = forceDisableMultiAgentV2(config, { multiAgentVersion: "v2" });
 
-	assert.doesNotMatch(result, /\[features\.multi_agent_v2\]/);
+	assert.match(result, /\[features\.multi_agent_v2\][\s\S]*?enabled = true/);
 	assert.doesNotMatch(result, /enabled = false/);
 	assert.match(result, /plugins = true/);
 });
 
-test("#given gpt-5.6-terra managed disable #when full migration sees models_cache v2 #then clears disable and drops agents.max_threads", async () => {
+test("#given gpt-5.6-terra managed disable #when full migration sees models_cache v2 #then enables V2 and preserves agents.max_threads", async () => {
 	const root = await mkdtemp(join(tmpdir(), "lazycodex-multi-agent-v2-gpt56-"));
 	const codexHome = join(root, "codex-home");
 	await mkdir(codexHome, { recursive: true });
@@ -944,11 +950,11 @@ test("#given gpt-5.6-terra managed disable #when full migration sees models_cach
 
 	assert.deepEqual(result.changed, [configPath]);
 	const content = await readFile(configPath, "utf8");
-	assert.doesNotMatch(content, /^\s*enabled\s*=\s*false/m);
+	assert.match(content, /^\s*enabled\s*=\s*true/m);
 	assert.doesNotMatch(content, /openai\/codex#26753/);
-	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
+	assert.match(content, /^\s*max_threads\s*=\s*1000/m);
 	assert.match(content, /max_depth = 2/);
-	assert.match(content, /max_concurrent_threads_per_session = 1000/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 test("#given config default gpt-5.5 #when SessionStart model is gpt-5.6-terra #then prefers session model and clears disable", () => {
@@ -966,8 +972,9 @@ test("#given config default gpt-5.5 #when SessionStart model is gpt-5.6-terra #t
 		multiAgentVersion: "v2",
 	});
 
-	assert.doesNotMatch(result, /^\s*enabled\s*=\s*false/m);
-	assert.match(result, /max_concurrent_threads_per_session = 1000/);
+	assert.match(result, /^\s*enabled\s*=\s*true/m);
+	assert.match(result, /\[agents\][\s\S]*?max_threads = 1000/);
+	assert.doesNotMatch(result, /max_concurrent_threads_per_session/);
 });
 
 test("#given SessionStart without model #when requireSessionModel is set #then skips legacy force-disable", () => {
@@ -994,7 +1001,7 @@ test("#given legacy [features] shorthand #when requireSessionModel skips force-d
 
 	assert.doesNotMatch(result, /^\s*multi_agent_v2\s*=/m);
 	assert.match(result, /plugins = true/);
-	assert.doesNotMatch(result, /\[features\.multi_agent_v2\]/);
+	assert.match(result, /\[features\.multi_agent_v2\][\s\S]*?enabled = true/);
 });
 
 test("#given legacy [features] shorthand #when session model has no catalog entry #then still removes the shorthand", () => {
@@ -1006,7 +1013,7 @@ test("#given legacy [features] shorthand #when session model has no catalog entr
 	});
 
 	assert.doesNotMatch(result, /^\s*multi_agent_v2\s*=/m);
-	assert.doesNotMatch(result, /\[features\.multi_agent_v2\]/);
+	assert.match(result, /\[features\.multi_agent_v2\][\s\S]*?enabled = false/);
 });
 
 test("#given legacy shorthand and no session model on hook path #when full migration runs #then output stays valid TOML", async () => {
@@ -1030,8 +1037,9 @@ test("#given legacy shorthand and no session model on hook path #when full migra
 	const parsed = parseTomlWithPython(content);
 	assert.doesNotMatch(content, /^\s*multi_agent_v2\s*=\s*(?:true|false)/m);
 	assert.equal(parsed.features.plugins, true);
-	assert.equal(parsed.features.multi_agent_v2.max_concurrent_threads_per_session, 6);
-	assert.equal("enabled" in parsed.features.multi_agent_v2, false);
+	assert.equal(parsed.features.multi_agent_v2.enabled, true);
+	assert.equal(parsed.agents.max_threads, 6);
+	assert.equal("max_concurrent_threads_per_session" in parsed.features.multi_agent_v2, false);
 });
 
 test("#given SoT migration failure #when hook migration runs #then config.toml repair still happens", async () => {
@@ -1108,9 +1116,9 @@ test("#given config default gpt-5.5 #when full migration gets SessionStart gpt-5
 
 	assert.deepEqual(result.changed, [configPath]);
 	const content = await readFile(configPath, "utf8");
-	assert.doesNotMatch(content, /^\s*enabled\s*=\s*false/m);
-	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
-	assert.match(content, /max_concurrent_threads_per_session = 1000/);
+	assert.match(content, /^\s*enabled\s*=\s*true/m);
+	assert.match(content, /^\s*max_threads\s*=\s*1000/m);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 test("#given no session model and no root model #when forcing disable #then leaves the enable state untouched", () => {
@@ -1151,7 +1159,7 @@ test("#given user-modified config without root model #when full non-hook migrati
 	assert.doesNotMatch(content, /^\s*enabled\s*=\s*false/m);
 	assert.doesNotMatch(content, /openai\/codex#26753/);
 	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
-	assert.match(content, /max_concurrent_threads_per_session = 6/);
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 });
 
 async function canCreateSymlink(type) {
@@ -1211,8 +1219,8 @@ test("#given model_catalog_json declares a v2 model as v1 #when full migration r
 
 	const content = await readFile(configPath, "utf8");
 	assert.match(content, /enabled = false/, "explicit v1 catalog must keep the managed disable");
-	assert.match(content, /max_threads = 6/, "explicit v1 catalog must keep the managed agents.max_threads cap");
-	assert.match(content, /max_concurrent_threads_per_session = 1000/);
+	assert.match(content, /max_threads = 1000/, "explicit v1 catalog must preserve the user agents.max_threads cap");
+	assert.doesNotMatch(content, /max_concurrent_threads_per_session/);
 	assert.match(content, /max_depth = 2/);
 });
 

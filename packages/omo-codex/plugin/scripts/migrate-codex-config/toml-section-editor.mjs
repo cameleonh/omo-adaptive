@@ -138,6 +138,110 @@ export function removeTomlSectionSetting(config, section, keyPath, expectedValue
 	return config;
 }
 
+export function readTomlSectionSettingValue(section, keyPath) {
+	const targetPath = parseTomlDottedKey(keyPath);
+	if (!targetPath) return null;
+	const lines = section.text.match(/[^\n]*\n?|$/g) ?? [];
+	let multilineQuote = null;
+	for (const line of lines) {
+		if (line.length === 0) break;
+		const multilineScan = scanTomlMultilineLine(line, multilineQuote);
+		multilineQuote = multilineScan.nextQuote;
+		if (multilineScan.wasInside) continue;
+		const assignmentIndex = findUnquotedAssignment(line);
+		if (assignmentIndex < 0) continue;
+		const settingPath = parseTomlDottedKey(line.slice(0, assignmentIndex).trim());
+		if (!settingPath || !tomlPathMatches(settingPath, targetPath)) continue;
+		const lineBody = line.endsWith("\n") ? line.slice(0, -1) : line;
+		const commentIndex = findUnquotedComment(lineBody, assignmentIndex + 1);
+		const valueEnd = commentIndex === -1 ? lineBody.length : commentIndex;
+		return lineBody.slice(assignmentIndex + 1, valueEnd).trim();
+	}
+	return null;
+}
+
+export function readRootTomlSettingValue(config, keyPath) {
+	const targetPath = parseTomlDottedKey(keyPath);
+	if (!targetPath) return null;
+	const match = findRootTomlSetting(config, targetPath);
+	if (!match) return null;
+	const commentIndex = findUnquotedComment(match.lineBody, match.assignmentIndex + 1);
+	const valueEnd = commentIndex === -1 ? match.lineBody.length : commentIndex;
+	return match.lineBody.slice(match.assignmentIndex + 1, valueEnd).trim();
+}
+
+export function removeTomlSection(config, section) {
+	return `${config.slice(0, section.start)}${config.slice(section.end).replace(/^\n+/, "")}`;
+}
+
+export function removeUnsupportedTomlSectionSettings(config, section, allowedKeyPaths) {
+	const allowedPaths = allowedKeyPaths.map(parseTomlDottedKey).filter((path) => path !== null);
+	const lines = section.text.match(/[^\n]*\n?|$/g) ?? [];
+	let output = "";
+	let multilineQuote = null;
+	let keepMultilineValue = true;
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index];
+		if (line.length === 0) break;
+		if (index === 0) {
+			output += line;
+			continue;
+		}
+		const multilineScan = scanTomlMultilineLine(line, multilineQuote);
+		multilineQuote = multilineScan.nextQuote;
+		if (multilineScan.wasInside) {
+			if (keepMultilineValue) output += line;
+			continue;
+		}
+		const assignmentIndex = findUnquotedAssignment(line);
+		if (assignmentIndex >= 0) {
+			const settingPath = parseTomlDottedKey(line.slice(0, assignmentIndex).trim());
+			keepMultilineValue = settingPath !== null && allowedPaths.some((allowed) => tomlPathMatches(settingPath, allowed));
+			if (keepMultilineValue) output += line;
+			continue;
+		}
+		keepMultilineValue = true;
+		output += line;
+	}
+	return config.slice(0, section.start) + output + config.slice(section.end);
+}
+
+export function removeUnsupportedTomlSectionDottedSettings(config, section, namespaceKeyPath, allowedLeafKeyPaths) {
+	const namespacePath = parseTomlDottedKey(namespaceKeyPath);
+	if (!namespacePath) return config;
+	return filterTomlSettings(config, section, (settingPath) => {
+		if (!tomlPathStartsWith(settingPath, namespacePath)) return true;
+		const leafPath = settingPath.slice(namespacePath.length);
+		return allowedLeafKeyPaths.some((keyPath) => {
+			const allowedPath = parseTomlDottedKey(keyPath);
+			return allowedPath !== null && tomlPathMatches(leafPath, allowedPath);
+		});
+	});
+}
+
+export function removeUnsupportedRootTomlDottedSettings(config, namespaceKeyPath, allowedLeafKeyPaths) {
+	const rootEnd = findFirstTomlTableStart(config);
+	const rootSection = {
+		start: 0,
+		end: rootEnd,
+		text: config.slice(0, rootEnd),
+	};
+	return filterTomlSettings(
+		config,
+		rootSection,
+		(settingPath) => {
+			const namespacePath = parseTomlDottedKey(namespaceKeyPath);
+			if (!namespacePath || !tomlPathStartsWith(settingPath, namespacePath)) return true;
+			const leafPath = settingPath.slice(namespacePath.length);
+			return allowedLeafKeyPaths.some((keyPath) => {
+				const allowedPath = parseTomlDottedKey(keyPath);
+				return allowedPath !== null && tomlPathMatches(leafPath, allowedPath);
+			});
+		},
+		false,
+	);
+}
+
 export function removeRootTomlSetting(config, keyPath, expectedValue) {
 	const targetPath = parseTomlDottedKey(keyPath);
 	if (!targetPath) return config;
@@ -191,7 +295,10 @@ function scanTomlMultilineLine(line, currentQuote) {
 		const delimiter = line.startsWith('"""', index) ? '"""' : line.startsWith("'''", index) ? "'''" : null;
 		if (delimiter) {
 			const closingIndex = findTomlMultilineDelimiter(line, delimiter, index + delimiter.length);
-			return { wasInside: false, nextQuote: closingIndex === -1 ? delimiter : null };
+			return {
+				wasInside: false,
+				nextQuote: closingIndex === -1 ? delimiter : null,
+			};
 		}
 		if (char === '"' || char === "'") quote = char;
 		index += 1;
@@ -236,7 +343,13 @@ function findRootTomlSetting(config, targetPath) {
 			const settingPath = parseTomlDottedKey(line.slice(0, assignmentIndex).trim());
 			if (settingPath && tomlPathMatches(settingPath, targetPath)) {
 				const newline = line.endsWith("\n") ? "\n" : "";
-				return { line, lineBody: newline ? line.slice(0, -1) : line, newline, offset, assignmentIndex };
+				return {
+					line,
+					lineBody: newline ? line.slice(0, -1) : line,
+					newline,
+					offset,
+					assignmentIndex,
+				};
 			}
 		}
 		offset += line.length;
@@ -286,6 +399,41 @@ function findUnquotedComment(line, startIndex) {
 
 function tomlPathMatches(candidate, target) {
 	return candidate.length === target.length && candidate.every((part, index) => part === target[index]);
+}
+
+function tomlPathStartsWith(candidate, prefix) {
+	return candidate.length >= prefix.length && prefix.every((part, index) => part === candidate[index]);
+}
+
+function filterTomlSettings(config, section, shouldKeep, hasHeader = true) {
+	const lines = section.text.match(/[^\n]*\n?|$/g) ?? [];
+	let output = "";
+	let multilineQuote = null;
+	let keepMultilineValue = true;
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index];
+		if (line.length === 0) break;
+		if (hasHeader && index === 0) {
+			output += line;
+			continue;
+		}
+		const multilineScan = scanTomlMultilineLine(line, multilineQuote);
+		multilineQuote = multilineScan.nextQuote;
+		if (multilineScan.wasInside) {
+			if (keepMultilineValue) output += line;
+			continue;
+		}
+		const assignmentIndex = findUnquotedAssignment(line);
+		if (assignmentIndex >= 0) {
+			const settingPath = parseTomlDottedKey(line.slice(0, assignmentIndex).trim());
+			keepMultilineValue = settingPath === null || shouldKeep(settingPath);
+			if (keepMultilineValue) output += line;
+			continue;
+		}
+		keepMultilineValue = true;
+		output += line;
+	}
+	return config.slice(0, section.start) + output + config.slice(section.end);
 }
 
 function replaceTomlAssignmentValue(line, assignmentIndex, value) {
@@ -438,7 +586,10 @@ function parseUnicodeEscape(input, digitsStart, digitCount) {
 	if (digits.length !== digitCount || !/^[0-9A-Fa-f]+$/.test(digits)) return null;
 	const codePoint = Number.parseInt(digits, 16);
 	if (codePoint > 0x10ffff) return null;
-	return { value: String.fromCodePoint(codePoint), nextIndex: digitsStart + digitCount };
+	return {
+		value: String.fromCodePoint(codePoint),
+		nextIndex: digitsStart + digitCount,
+	};
 }
 
 function parseBareTomlKey(input, startIndex) {

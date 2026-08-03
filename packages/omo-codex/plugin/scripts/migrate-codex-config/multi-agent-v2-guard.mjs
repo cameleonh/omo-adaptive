@@ -10,11 +10,10 @@
  * catalog invert that failure mode: forcing `enabled = false` makes every
  * turn 400 with a reserved `collaboration.spawn_agent` schema mismatch
  * (lazycodex#118 / oh-my-openagent#6002 / openai/codex#31097), and
- * `hide_spawn_agent_metadata = false` (written by OMO installers <= 4.15.x)
- * mismatches the same reserved schema by re-adding agent_type/model
- * properties to spawn_agent. For those models this guard clears the managed
- * disable and the stale metadata override, leaving V2 unset so Codex can
- * follow model metadata.
+ * Codex 0.120 accepts four fields in the V2 table: `enabled`,
+ * `usage_hint_enabled`, `usage_hint_text`, and `hide_spawn_agent_metadata`.
+ * The migration preserves those fields and their comments, removes obsolete
+ * V2 fields, and moves the legacy thread limit to `[agents].max_threads`.
  *
  * When the selected model is unknown or declares V1, keep the #26753
  * force-disable path.
@@ -28,21 +27,26 @@ import { dirname, isAbsolute, join } from "node:path";
 
 import {
 	findTomlSection as findSection,
-	hasTomlSetting,
-	removeTomlSectionSetting,
+	readRootTomlSettingValue,
+	readTomlSectionSettingValue,
 	removeRootTomlSetting,
-	replaceOrInsertTomlSectionSetting,
+	removeTomlSection,
+	removeTomlSectionSetting,
+	removeUnsupportedRootTomlDottedSettings,
+	removeUnsupportedTomlSectionDottedSettings,
+	removeUnsupportedTomlSectionSettings,
 	replaceOrInsertRootTomlSetting,
+	replaceOrInsertTomlSectionSetting,
 } from "./toml-section-editor.mjs";
 
 const MANAGED_COMMENT_MARKER = "openai/codex#26753";
-const MULTI_AGENT_V2_THREAD_LIMIT_KEY = "features.multi_agent_v2.max_concurrent_threads_per_session";
 const MANAGED_DISABLE_COMMENT = [
 	"# Managed by LazyCodex: multi_agent_v2 is re-disabled on every Codex session start",
 	`# because enabling it fails every turn with HTTP 400 (${MANAGED_COMMENT_MARKER}).`,
 	"# Opt out: LAZYCODEX_CONFIG_MIGRATION_DISABLED=1 (or OMO_CODEX_CONFIG_MIGRATION_DISABLED=1).",
 	"",
 ].join("\n");
+const SUPPORTED_MULTI_AGENT_V2_FIELDS = ["enabled", "usage_hint_enabled", "usage_hint_text", "hide_spawn_agent_metadata"];
 
 /**
  * @param {string} config
@@ -56,20 +60,14 @@ const MANAGED_DISABLE_COMMENT = [
  * }} [options]
  */
 export function forceDisableMultiAgentV2(config, options = {}) {
-	// Always normalize the legacy `[features]` boolean shorthand first: leaving
-	// `multi_agent_v2 = true|false` in place while a later guard appends the
-	// `[features.multi_agent_v2]` table would define the same name as both a
-	// scalar and a table, which Codex rejects as invalid TOML.
-	const normalized = removeFeaturesShorthand(config);
+	const normalized = normalizeLegacyMultiAgentV2Config(config);
 	const sessionModel = normalizeModel(options.sessionModel);
 	const multiAgentVersion =
-		options.multiAgentVersion !== undefined
-			? options.multiAgentVersion
-			: resolveMultiAgentVersionFromConfig(normalized, options);
-	const effectiveModel = sessionModel || readRootModel(normalized);
+		options.multiAgentVersion !== undefined ? options.multiAgentVersion : resolveMultiAgentVersionFromConfig(normalized.config, options);
+	const effectiveModel = sessionModel || readRootModel(normalized.config);
 
 	if (prefersMultiAgentV2(multiAgentVersion, effectiveModel)) {
-		return clearMultiAgentV2DisableForReservedSchema(normalized);
+		return setMultiAgentV2Feature(clearMultiAgentV2DisableForReservedSchema(normalized.config), true);
 	}
 
 	// SessionStart can run with an override model (`codex -m gpt-5.6-terra`) while
@@ -77,7 +75,7 @@ export function forceDisableMultiAgentV2(config, options = {}) {
 	// session model, do not force-disable — writing enabled=false would break a
 	// GPT-5.6 reserved collaboration.spawn_agent session.
 	if (options.requireSessionModel === true && !sessionModel) {
-		return normalized;
+		return preserveLegacyFeatureSetting(normalized);
 	}
 
 	// No model evidence at all (no session model AND no root `model` in
@@ -85,17 +83,17 @@ export function forceDisableMultiAgentV2(config, options = {}) {
 	// cannot prove the session is not a GPT-5.6 reserved-schema model, and
 	// writing `enabled = false` would 400 every turn on those sessions
 	// (#6002). Leave the enable state untouched.
-	if (multiAgentVersion == null && !sessionModel && !readRootModel(normalized)) {
-		return normalized;
+	if (multiAgentVersion == null && !sessionModel && !readRootModel(normalized.config)) {
+		return preserveLegacyFeatureSetting(normalized);
 	}
 
 	// Unknown catalog entry for an explicit session model: skip force-disable
 	// rather than assume the legacy encrypted-V2 failure mode.
 	if (sessionModel && multiAgentVersion == null) {
-		return normalized;
+		return preserveLegacyFeatureSetting(normalized);
 	}
 
-	return forceDisableLegacyEncryptedV2(normalized);
+	return forceDisableLegacyEncryptedV2(normalized.config);
 }
 
 /**
@@ -132,9 +130,7 @@ export function resolveMultiAgentVersionFromConfig(config, options = {}) {
  * @returns {"v1" | "v2" | null}
  */
 export function resolveMultiAgentVersionForModel(model, options = {}) {
-	const cachePath =
-		options.modelsCachePath?.trim() ||
-		join(options.env?.CODEX_HOME?.trim() || join(homedir(), ".codex"), "models_cache.json");
+	const cachePath = options.modelsCachePath?.trim() || join(options.env?.CODEX_HOME?.trim() || join(homedir(), ".codex"), "models_cache.json");
 
 	try {
 		const cache = JSON.parse(readFileSync(cachePath, "utf8"));
@@ -186,76 +182,19 @@ function isGpt56Family(model) {
 }
 
 function clearMultiAgentV2DisableForReservedSchema(config) {
-	// `config` arrives shorthand-normalized from forceDisableMultiAgentV2.
-	let result = removeManagedDisableComments(config);
-	result = removeRootTomlSetting(result, "features.multi_agent_v2.enabled", "false");
-	result = removeRootTomlSetting(result, "features.multi_agent_v2.hide_spawn_agent_metadata", "false");
-	result = removeDottedMultiAgentV2Setting(result, "enabled", "false");
-	result = removeDottedMultiAgentV2Setting(result, "hide_spawn_agent_metadata", "false");
-
-	const section = findSection(result, "[features.multi_agent_v2]");
-	if (!section) return result;
-
-	// Two settings poison the reserved collaboration.spawn_agent schema on V2
-	// models (verified against codex-cli 0.144.1 + gpt-5.6-sol):
-	// - `enabled = false` forces the legacy V1 tool surface on some Codex
-	//   versions (#6002's failure shape);
-	// - `hide_spawn_agent_metadata = false` (written by OMO installers
-	//   <= 4.15.x to expose agent_type) re-adds agent_type/model/... to
-	//   spawn_agent, mismatching the reserved schema -> HTTP 400 every turn.
-	// Remove both; `hide_spawn_agent_metadata = true` matches the Codex
-	// default and is left alone.
-	const cleared = section.text
-		.replace(/^\s*enabled\s*=\s*false[ \t]*(?:#[^\n]*)?\n?/gm, "")
-		.replace(/^\s*hide_spawn_agent_metadata\s*=\s*false[ \t]*(?:#[^\n]*)?\n?/gm, "");
-	if (cleared === section.text) return result;
-	return result.slice(0, section.start) + cleared + result.slice(section.end);
+	return removeManagedDisableComments(config);
 }
 
-// `config` arrives shorthand-normalized from forceDisableMultiAgentV2.
 function forceDisableLegacyEncryptedV2(config) {
-	const section = findSection(config, "[features.multi_agent_v2]");
-
-	if (!section) {
-		if (hasTomlSetting(config, MULTI_AGENT_V2_THREAD_LIMIT_KEY)) {
-			return setDottedMultiAgentV2Disable(config);
-		}
-		return ensureManagedComment(appendDisabledSection(config));
-	}
-
-	const enabledTruePattern = /^(\s*)enabled\s*=\s*true[ \t]*(#[^\n]*)?$/m;
-	if (enabledTruePattern.test(section.text)) {
-		const patched = section.text.replace(enabledTruePattern, (_match, indent, comment) =>
-			comment ? `${indent}enabled = false ${comment}` : `${indent}enabled = false`,
-		);
-		return ensureManagedComment(config.slice(0, section.start) + patched + config.slice(section.end));
-	}
-
-	if (/^\s*enabled\s*=\s*false[ \t]*(?:#[^\n]*)?$/m.test(section.text)) return config;
-
-	const headerEnd = section.text.indexOf("\n");
-	const insertAt = headerEnd === -1 ? section.text.length : headerEnd + 1;
-	const patched = `${section.text.slice(0, insertAt)}${headerEnd === -1 ? "\n" : ""}enabled = false\n${section.text.slice(insertAt)}`;
-	return ensureManagedComment(config.slice(0, section.start) + patched + config.slice(section.end));
-}
-
-function setDottedMultiAgentV2Disable(config) {
-	const featuresSection = findSection(config, "[features]");
-	if (!featuresSection) {
-		return replaceOrInsertRootTomlSetting(config, "features.multi_agent_v2.enabled", "false");
-	}
-	return replaceOrInsertTomlSectionSetting(config, featuresSection, "multi_agent_v2.enabled", "false");
-}
-
-function removeDottedMultiAgentV2Setting(config, key, expectedValue) {
-	const featuresSection = findSection(config, "[features]");
-	if (!featuresSection) return config;
-	return removeTomlSectionSetting(config, featuresSection, `multi_agent_v2.${key}`, expectedValue);
+	return ensureManagedComment(setMultiAgentV2Feature(config, false));
 }
 
 function ensureManagedComment(config) {
 	if (config.includes(MANAGED_COMMENT_MARKER)) return config;
-	const section = findSection(config, "[features.multi_agent_v2]");
+	const section = findSection(config, "[features.multi_agent_v2]") ?? findSection(config, "[features]");
+	if (!section && hasRootDottedMultiAgentV2Options(config)) {
+		return MANAGED_DISABLE_COMMENT + config;
+	}
 	if (!section) return config;
 	return config.slice(0, section.start) + MANAGED_DISABLE_COMMENT + config.slice(section.start);
 }
@@ -284,19 +223,110 @@ function removeManagedDisableComments(config) {
 	return kept.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
-function removeFeaturesShorthand(config) {
-	const section = findSection(config, "[features]");
-	if (!section) return config;
-
-	const shorthandPattern = /^\s*multi_agent_v2\s*=\s*(?:true|false)[ \t]*(?:#[^\n]*)?[ \t]*\n?/m;
-	if (!shorthandPattern.test(section.text)) return config;
-
-	const patched = section.text.replace(shorthandPattern, "");
-	return config.slice(0, section.start) + patched + config.slice(section.end);
+function setMultiAgentV2Feature(config, enabled) {
+	const v2Section = findSection(config, "[features.multi_agent_v2]");
+	if (v2Section) return replaceOrInsertTomlSectionSetting(config, v2Section, "enabled", String(enabled));
+	const featuresSection = findSection(config, "[features]");
+	if (featuresSection && hasDottedMultiAgentV2Options(featuresSection)) {
+		return replaceOrInsertTomlSectionSetting(config, featuresSection, "multi_agent_v2.enabled", String(enabled));
+	}
+	if (hasRootDottedMultiAgentV2Options(config)) {
+		return replaceOrInsertRootTomlSetting(config, "features.multi_agent_v2.enabled", String(enabled));
+	}
+	return appendBlock(config, `[features.multi_agent_v2]\nenabled = ${enabled}\n`);
 }
 
-function appendDisabledSection(config) {
+function preserveLegacyFeatureSetting(normalized) {
+	if (normalized.legacyEnabled === null) return normalized.config;
+	return setMultiAgentV2Feature(normalized.config, normalized.legacyEnabled);
+}
+
+function normalizeLegacyMultiAgentV2Config(config) {
+	let result = config;
+	let legacyEnabled = null;
+	let legacyThreadLimit = null;
+
+	const nestedSection = findSection(result, "[features.multi_agent_v2]");
+	if (nestedSection) {
+		legacyEnabled = readBoolean(readTomlSectionSettingValue(nestedSection, "enabled"));
+		legacyThreadLimit = readPositiveInteger(readTomlSectionSettingValue(nestedSection, "max_concurrent_threads_per_session"));
+		if (legacyThreadLimit !== null) {
+			result = removeTomlSectionSetting(result, nestedSection, "max_concurrent_threads_per_session", String(legacyThreadLimit));
+		}
+		const sectionWithoutUnsupportedSettings = findSection(result, "[features.multi_agent_v2]");
+		if (sectionWithoutUnsupportedSettings) {
+			result = removeUnsupportedTomlSectionSettings(result, sectionWithoutUnsupportedSettings, SUPPORTED_MULTI_AGENT_V2_FIELDS);
+		}
+		const remainingSection = findSection(result, "[features.multi_agent_v2]");
+		if (remainingSection && !hasTomlSettings(remainingSection)) result = removeTomlSection(result, remainingSection);
+	}
+
+	const featuresSection = findSection(result, "[features]");
+	if (featuresSection) {
+		const scalarEnabled = readBoolean(readTomlSectionSettingValue(featuresSection, "multi_agent_v2"));
+		const dottedEnabled = readBoolean(readTomlSectionSettingValue(featuresSection, "multi_agent_v2.enabled"));
+		const dottedLimit = readPositiveInteger(readTomlSectionSettingValue(featuresSection, "multi_agent_v2.max_concurrent_threads_per_session"));
+		legacyEnabled ??= dottedEnabled ?? scalarEnabled;
+		legacyThreadLimit ??= dottedLimit;
+		if (scalarEnabled !== null) result = removeTomlSectionSetting(result, featuresSection, "multi_agent_v2", String(scalarEnabled));
+		let refreshedFeatures = findSection(result, "[features]");
+		if (refreshedFeatures && dottedLimit !== null) {
+			result = removeTomlSectionSetting(result, refreshedFeatures, "multi_agent_v2.max_concurrent_threads_per_session", String(dottedLimit));
+		}
+		refreshedFeatures = findSection(result, "[features]");
+		if (refreshedFeatures) {
+			result = removeUnsupportedTomlSectionDottedSettings(result, refreshedFeatures, "multi_agent_v2", SUPPORTED_MULTI_AGENT_V2_FIELDS);
+		}
+	}
+
+	const rootEnabled = readBoolean(readRootTomlSettingValue(result, "features.multi_agent_v2.enabled"));
+	const rootLimit = readPositiveInteger(readRootTomlSettingValue(result, "features.multi_agent_v2.max_concurrent_threads_per_session"));
+	legacyEnabled ??= rootEnabled;
+	legacyThreadLimit ??= rootLimit;
+	if (rootLimit !== null) result = removeRootTomlSetting(result, "features.multi_agent_v2.max_concurrent_threads_per_session", String(rootLimit));
+	result = removeUnsupportedRootTomlDottedSettings(result, "features.multi_agent_v2", SUPPORTED_MULTI_AGENT_V2_FIELDS);
+	if (legacyThreadLimit !== null) result = mergeLegacyThreadLimit(result, legacyThreadLimit);
+
+	return { config: result, legacyEnabled };
+}
+
+function mergeLegacyThreadLimit(config, limit) {
+	const section = findSection(config, "[agents]");
+	if (!section) return appendBlock(config, `[agents]\nmax_threads = ${limit}\n`);
+	const current = readPositiveInteger(readTomlSectionSettingValue(section, "max_threads"));
+	if (current !== null) return config;
+	return replaceOrInsertTomlSectionSetting(config, section, "max_threads", String(limit));
+}
+
+function readBoolean(value) {
+	if (value === "true") return true;
+	if (value === "false") return false;
+	return null;
+}
+
+function readPositiveInteger(value) {
+	if (!/^\d+$/.test(value ?? "")) return null;
+	const parsed = Number(value);
+	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function hasTomlSettings(section) {
+	return section.text
+		.split("\n")
+		.slice(1)
+		.some((line) => line.trim().length > 0 && !line.trimStart().startsWith("#"));
+}
+
+function hasDottedMultiAgentV2Options(section) {
+	return SUPPORTED_MULTI_AGENT_V2_FIELDS.some((key) => readTomlSectionSettingValue(section, `multi_agent_v2.${key}`) !== null);
+}
+
+function hasRootDottedMultiAgentV2Options(config) {
+	return SUPPORTED_MULTI_AGENT_V2_FIELDS.some((key) => readRootTomlSettingValue(config, `features.multi_agent_v2.${key}`) !== null);
+}
+
+function appendBlock(config, block) {
 	const trimmed = config.trimEnd();
 	const prefix = trimmed.length === 0 ? "" : `${trimmed}\n\n`;
-	return `${prefix}[features.multi_agent_v2]\nenabled = false\n`;
+	return `${prefix}${block}`;
 }
