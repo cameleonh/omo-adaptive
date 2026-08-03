@@ -7,7 +7,7 @@ import { installMarketplaceLocally } from "./install-local.mjs";
 import { repairNearestProjectLocalCodexArtifacts } from "./install-dist/install-local.mjs";
 import { makeTempDir, writeJson, writePluginAt } from "./install-test-fixtures.mjs";
 
-test("#given stale project-local Codex config #when Node installer runs #then repairs the local conflict", async () => {
+test("#given project-local config with an invalid V2 cap #when Node installer runs #then migrates only the local conflict", async () => {
 	const repoRoot = await makeTempDir();
 	const codexHome = await makeTempDir();
 	const binDir = await makeTempDir();
@@ -30,6 +30,8 @@ test("#given stale project-local Codex config #when Node installer runs #then re
 		[
 			"[features.multi_agent_v2]",
 			"enabled = true",
+			"usage_hint_enabled = false",
+			"max_concurrent_threads_per_session = 10",
 			"",
 			"[agents]",
 			"  max_threads = 10",
@@ -55,15 +57,17 @@ test("#given stale project-local Codex config #when Node installer runs #then re
 
 	assert.equal(result.projectCleanup.configPath, projectConfigPath);
 	assert.equal(result.projectCleanup.changed, true);
-	assert.deepEqual(result.projectCleanup.removedKeys, ["max_threads"]);
+	assert.deepEqual(result.projectCleanup.removedKeys, ["max_concurrent_threads_per_session"]);
 	assert.equal(result.projectCleanup.configs.length, 1);
-	assert.match(await readFile(result.projectCleanup.backupPath, "utf8"), /max_threads = 10/);
+	assert.match(await readFile(result.projectCleanup.backupPath, "utf8"), /max_concurrent_threads_per_session = 10/);
 	const content = await readFile(projectConfigPath, "utf8");
-	assert.doesNotMatch(content, /^\s*max_threads\s*=/m);
+	assert.doesNotMatch(content, /^\s*max_concurrent_threads_per_session\s*=/m);
+	assert.match(content, /usage_hint_enabled = false/);
+	assert.match(content, /^\s*max_threads = 10$/m);
 	assert.match(content, /max_depth = 4/);
 });
 
-test("#given root and nested project-local Codex configs #when script cleanup runs #then it repairs every loaded project layer", async () => {
+test("#given root and nested project-local Codex configs #when script cleanup runs #then it migrates only the invalid root V2 cap", async () => {
 	const projectRoot = await makeTempDir();
 	const projectDirectory = join(projectRoot, "nested");
 	const rootConfigPath = join(projectRoot, ".codex", "config.toml");
@@ -78,6 +82,7 @@ test("#given root and nested project-local Codex configs #when script cleanup ru
 		[
 			"[features.multi_agent_v2]",
 			"enabled = true",
+			"max_concurrent_threads_per_session = 10",
 			"",
 			"[agents]",
 			"max_threads = 10",
@@ -116,7 +121,8 @@ test("#given root and nested project-local Codex configs #when script cleanup ru
 	assert.equal(result.backupPath, `${rootConfigPath}.backup-2026-06-01T01-02-03-004Z`);
 	const rootContent = await readFile(rootConfigPath, "utf8");
 	const nestedContent = await readFile(nestedConfigPath, "utf8");
-	assert.doesNotMatch(rootContent, /^max_threads\s*=/m);
+	assert.doesNotMatch(rootContent, /^max_concurrent_threads_per_session\s*=/m);
+	assert.match(rootContent, /^max_threads = 10$/m);
 	assert.match(rootContent, /max_depth = 4/);
 	assert.match(nestedContent, /job_max_runtime_seconds = 7200/);
 	assert.deepEqual(

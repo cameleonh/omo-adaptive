@@ -8,7 +8,7 @@ import test from "node:test";
 
 import { updateCodexConfig } from "./install-dist/install-local.mjs";
 
-test("#given empty Codex config #when script installer updates config #then sets subagent thread limits without forcing MultiAgentV2", async () => {
+test("#given empty Codex config #when script installer updates config #then sets the Codex 0.120 V2 boolean and agents cap", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-"));
 	const configPath = join(root, "config.toml");
@@ -23,15 +23,11 @@ test("#given empty Codex config #when script installer updates config #then sets
 	});
 
 	// then
-	// The stamped default model is v2-preferred, so the installer must not
-	// introduce agents.max_threads (Codex rejects it under MultiAgentV2).
 	const config = await readFile(configPath, "utf8");
 	assert.doesNotMatch(config, /^\s*multi_agent_mode\s*=/m);
-	assert.doesNotMatch(config, /^\s*max_threads\s*=/m);
-	assert.match(config, /\[features\.multi_agent_v2\]/);
-	const v2Section = multiAgentV2Section(config);
-	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
+	assert.match(config, /^multi_agent_v2 = true$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /^max_threads = 6$/m);
 });
 
 test("#given queue multi-agent mode #when script installer updates config #then removes unsupported root key", async () => {
@@ -280,7 +276,7 @@ test("#given sisyphuslabs config without explicit source #when script installer 
 	assert.doesNotMatch(config, /ref = "main"/);
 });
 
-test("#given existing MultiAgentV2 table #when script installer updates config #then preserves unrelated tuning while setting subagent thread limits", async () => {
+test("#given existing MultiAgentV2 table with a legacy cap #when script installer updates config #then preserves supported fields and migrates the cap", async () => {
 	// given
 	// A pinned v1 model keeps this on the preserve-user-disable path; the
 	// stamped v2-preferred default would clear the disable instead.
@@ -311,13 +307,13 @@ test("#given existing MultiAgentV2 table #when script installer updates config #
 	// then
 	const config = await readFile(configPath, "utf8");
 	assert.match(config, /\[features\.multi_agent_v2\]/);
-	assert.doesNotMatch(sectionText(config, "[features.multi_agent_v2]"), /enabled = true/);
+	assert.match(sectionText(config, "[features.multi_agent_v2]"), /^enabled = false$/m);
 	assert.match(config, /usage_hint_enabled = false/);
-	assert.match(config, /max_concurrent_threads_per_session = 4/);
-	assert.doesNotMatch(config, /max_concurrent_threads_per_session = 1000/);
+	assert.doesNotMatch(config, /max_concurrent_threads_per_session/);
+	assert.match(config, /\[agents\][\s\S]*?max_threads = 4/);
 });
 
-test("#given empty Codex config #when script installer updates config #then sets the generated MultiAgentV2 thread limit", async () => {
+test("#given empty Codex config #when script installer updates config #then retains the V2 boolean form and default agents cap", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-roles-"));
 	const configPath = join(root, "config.toml");
@@ -332,13 +328,10 @@ test("#given empty Codex config #when script installer updates config #then sets
 	});
 
 	// then
-	// The stamped default model is v2-preferred, so agents.max_threads is not
-	// introduced (Codex rejects it under MultiAgentV2).
 	const config = await readFile(configPath, "utf8");
-	const v2Section = config.slice(config.indexOf("[features.multi_agent_v2]"));
-	assert.doesNotMatch(config, /^\s*max_threads\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
-	assert.doesNotMatch(v2Section, /hide_spawn_agent_metadata/);
+	assert.match(config, /^multi_agent_v2 = true$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /^max_threads = 6$/m);
 });
 
 test("#given user config hiding spawn_agent metadata #when script installer updates config #then preserves the generated source behavior", async () => {
@@ -369,9 +362,10 @@ test("#given user config hiding spawn_agent metadata #when script installer upda
 	assert.match(config, /hide_spawn_agent_metadata = true/);
 	assert.doesNotMatch(config, /hide_spawn_agent_metadata = false/);
 	assert.match(config, /usage_hint_enabled = false/);
+	assert.match(multiAgentV2Section(config), /^enabled = true$/m);
 });
 
-test("#given legacy boolean MultiAgentV2 flag and table #when script installer updates config #then normalizes to table config", async () => {
+test("#given V2 boolean and table settings #when script installer updates config #then retains the supported table form", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-legacy-"));
 	const configPath = join(root, "config.toml");
@@ -402,15 +396,14 @@ test("#given legacy boolean MultiAgentV2 flag and table #when script installer u
 	assert.doesNotMatch(config, /^multi_agent_v2\s*=/m);
 	assert.match(config, /\[features\.multi_agent_v2\]/);
 	const v2Section = multiAgentV2Section(config);
-	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
+	assert.match(v2Section, /^enabled = true$/m);
 	assert.match(v2Section, /usage_hint_enabled = false/);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
+	assert.doesNotMatch(v2Section, /max_concurrent_threads_per_session/);
+	assert.match(config, /^max_threads = 6$/m);
 });
 
-test("#given legacy boolean MultiAgentV2 flag false #when script installer updates config #then normalizes to a disabled table config", async () => {
+test("#given a V1 MultiAgentV2 boolean false #when script installer updates config #then preserves the supported boolean form", async () => {
 	// given
-	// A pinned v1 model keeps the legacy boolean materializing as a disabled
-	// table; the stamped v2-preferred default would drop the disable instead.
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-legacy-false-"));
 	const configPath = join(root, "config.toml");
 	await writeFile(
@@ -436,17 +429,13 @@ test("#given legacy boolean MultiAgentV2 flag false #when script installer updat
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	assert.doesNotMatch(config, /^multi_agent_v2\s*=/m);
-	assert.match(config, /\[features\.multi_agent_v2\]/);
-	const disabledV2Section = multiAgentV2Section(config);
-	assert.match(disabledV2Section, /^enabled = false$/m);
-	assert.match(disabledV2Section, /^max_concurrent_threads_per_session = 6$/m);
+	assert.match(config, /^multi_agent_v2 = false$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /^max_threads = 6$/m);
 });
 
-test("#given legacy agents max_threads #when script installer updates config #then raises the root subagent thread cap", async () => {
+test("#given existing agents max_threads #when script installer updates config #then preserves the valid root subagent cap", async () => {
 	// given
-	// A pinned v1 model keeps the legacy low-cap raise path exercised; the
-	// stamped v2-preferred default would remove agents.max_threads instead.
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-legacy-threads-"));
 	const configPath = join(root, "config.toml");
 	await writeFile(
@@ -473,21 +462,15 @@ test("#given legacy agents max_threads #when script installer updates config #th
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	assert.match(config, /\[features\.multi_agent_v2\]/);
-	const v2Section = multiAgentV2Section(config);
-	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
+	assert.match(config, /^multi_agent_v2 = false$/m);
 	assert.match(config, /\[agents\]/);
-	assert.match(config, /max_threads = 6/);
-	assert.doesNotMatch(config, /max_threads = 16/);
+	assert.match(config, /max_threads = 16/);
 	assert.match(config, /max_depth = 4/);
 	assert.match(config, /job_max_runtime_seconds = 3600/);
 });
 
-test("#given managed agent role sections #when script installer updates config #then preserves role config while raising only root agents max_threads", async () => {
+test("#given managed agent role sections #when script installer updates config #then preserves role config and root agents max_threads", async () => {
 	// given
-	// A pinned v1 model keeps the legacy low-cap raise path exercised; the
-	// stamped v2-preferred default would remove agents.max_threads instead.
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-script-config-multi-agent-role-section-"));
 	const configPath = join(root, "config.toml");
 	await writeFile(
@@ -517,8 +500,7 @@ test("#given managed agent role sections #when script installer updates config #
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	assert.match(config, /max_threads = 6/);
-	assert.doesNotMatch(config, /max_threads = 16/);
+	assert.match(config, /max_threads = 16/);
 	assert.match(config, /\[agents\.explorer\]/);
 	assert.match(config, /description = "read-only explorer"/);
 	assert.match(config, /config_file = "\.\/agents\/explorer\.toml"/);

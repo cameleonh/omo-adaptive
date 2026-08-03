@@ -57,7 +57,7 @@ test("#given generated installer output #when importing direct bundle #then comp
 	}
 });
 
-test("#given no root model #when generated bundle updates config #then it does not introduce agents max_threads", async () => {
+test("#given no root model #when generated bundle updates config #then it uses the conservative V2 boolean and agents cap", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-generated-no-root-model-"));
 	const configPath = join(root, "config.toml");
@@ -74,11 +74,12 @@ test("#given no root model #when generated bundle updates config #then it does n
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	assert.doesNotMatch(config, /^\s*max_threads\s*=/m);
-	assert.match(config, /max_concurrent_threads_per_session = 6/);
+	assert.match(config, /^multi_agent_v2 = false$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /^max_threads = 6$/m);
 });
 
-test("#given an inline-commented V2 thread cap #when generated bundle updates config twice #then preserves the line and ordering byte-for-byte", async () => {
+test("#given unsupported V2 settings #when generated bundle updates config twice #then removes only unsupported settings idempotently", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-generated-explicit-v2-cap-"));
 	const configPath = join(root, "config.toml");
@@ -109,13 +110,12 @@ test("#given an inline-commented V2 thread cap #when generated bundle updates co
 	// then
 	const secondPass = await readFile(configPath, "utf8");
 	assert.equal(sectionText(secondPass, "[features.multi_agent_v2]"), firstV2Section);
-	assert.match(
-		sectionText(secondPass, "[features.multi_agent_v2]"),
-		/usage_hint_enabled = false\nmax_concurrent_threads_per_session = 7 # user cap\nshow_tool_use = false/,
-	);
+	assert.match(sectionText(secondPass, "[features.multi_agent_v2]"), /enabled = true\nusage_hint_enabled = false/);
+	assert.doesNotMatch(sectionText(secondPass, "[features.multi_agent_v2]"), /max_concurrent_threads_per_session|show_tool_use/);
+	assert.match(secondPass, /^max_threads = 7$/m);
 });
 
-test("#given explicit v1 model_catalog_json and stale models_cache v2 #when generated bundle updates config #then explicit catalog preserves disable and cap", async () => {
+test("#given explicit v1 model_catalog_json and stale models_cache v2 #when generated bundle updates config #then explicit catalog preserves the boolean disable and agents cap", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-generated-catalog-v1-"));
 	const configPath = join(root, "config.toml");
@@ -148,13 +148,12 @@ test("#given explicit v1 model_catalog_json and stale models_cache v2 #when gene
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	const v2Section = sectionText(config, "[features.multi_agent_v2]");
-	assert.match(v2Section, /^enabled = false$/m);
-	assert.match(config, /\[agents\][\s\S]*?max_threads = 6/);
-	assert.doesNotMatch(config, /max_threads = 16/);
+	assert.match(config, /^multi_agent_v2 = false$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /\[agents\][\s\S]*?max_threads = 16/);
 });
 
-test("#given explicit v2 model_catalog_json and stale models_cache v1 #when generated bundle updates config #then explicit catalog clears managed disable and cap", async () => {
+test("#given explicit v2 model_catalog_json and stale models_cache v1 #when generated bundle updates config #then explicit catalog enables the V2 boolean and preserves agents cap", async () => {
 	// given
 	const root = await mkdtemp(join(tmpdir(), "omo-codex-generated-catalog-v2-"));
 	const configPath = join(root, "config.toml");
@@ -187,10 +186,9 @@ test("#given explicit v2 model_catalog_json and stale models_cache v1 #when gene
 
 	// then
 	const config = await readFile(configPath, "utf8");
-	const v2Section = sectionText(config, "[features.multi_agent_v2]");
-	assert.doesNotMatch(v2Section, /^enabled\s*=/m);
-	assert.doesNotMatch(config, /^\s*max_threads\s*=/m);
-	assert.match(v2Section, /max_concurrent_threads_per_session = 6/);
+	assert.match(config, /^multi_agent_v2 = true$/m);
+	assert.doesNotMatch(config, /\[features\.multi_agent_v2\]/);
+	assert.match(config, /^max_threads = 16$/m);
 });
 
 function sectionText(config, header) {
