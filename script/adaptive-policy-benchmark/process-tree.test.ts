@@ -5,6 +5,8 @@ import { join } from "node:path"
 import { readProcessSnapshot, runCommandWithTimeout } from "./process-tree"
 import { createInstalledTemplate } from "./test-template"
 
+const platformTest = process.platform === "linux" ? test : test.skip
+
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
@@ -13,7 +15,7 @@ afterEach(async () => {
   )
 })
 
-test("#given Codex launches a detached setsid descendant #when timeout expires #then explicit descendant cleanup prevents later writes", async () => {
+platformTest("#given Codex launches a detached setsid descendant #when timeout expires #then explicit descendant cleanup prevents later writes", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-tree-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")
@@ -38,7 +40,7 @@ setInterval(() => {}, 1000)
   expect(await Bun.file(marker).exists()).toBe(false)
 })
 
-test("#given process spawn fails #when the error rejects #then its timeout resource is cleared", async () => {
+platformTest("#given process spawn fails #when the error rejects #then its timeout resource is cleared", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-spawn-error-"))
   temporaryDirectories.push(root)
   const timersBefore = process.getActiveResourcesInfo().filter((resource) => resource === "Timeout").length
@@ -60,7 +62,7 @@ test("#given process spawn fails #when the error rejects #then its timeout resou
   expect(timersAfter).toBe(timersBefore)
 })
 
-test("#given identity enumeration fails after a detached descendant is tracked #when timeout cleans up #then stable identity prevents escape", async () => {
+platformTest("#given identity enumeration fails after a detached descendant is tracked #when timeout cleans up #then stable identity prevents escape", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-tracker-failure-"))
   temporaryDirectories.push(root)
   const marker = join(root, "escaped")
@@ -82,7 +84,7 @@ setInterval(()=>{},1000)
   expect(await Bun.file(marker).exists()).toBe(false)
 })
 
-test("#given a successful command leaves a detached descendant #when root closes #then tracked background work is cleaned", async () => {
+platformTest("#given a successful command leaves a detached descendant #when root closes #then tracked background work is cleaned", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-normal-cleanup-"))
   temporaryDirectories.push(root)
   const marker = join(root, "left-behind")

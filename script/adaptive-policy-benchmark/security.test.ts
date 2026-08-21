@@ -7,6 +7,8 @@ import { criterionMet, sha256Directory, validateCase, type CorpusCase } from "./
 import { claimOutputTarget, prepareOutputTarget, validateOutputTarget } from "./paths"
 import { createInstalledTemplate } from "./test-template"
 
+const platformDescribe = process.platform === "linux" ? describe : describe.skip
+
 const temporaryDirectories: string[] = []
 
 async function temporaryDirectory(): Promise<string> {
@@ -39,7 +41,7 @@ afterEach(async () => {
   )
 })
 
-describe("adaptive benchmark filesystem boundaries", () => {
+platformDescribe("adaptive benchmark filesystem boundaries", () => {
   test("#given an existing empty output #when planning starts #then no evidence is overwritten", async () => {
     const root = await temporaryDirectory()
     const template = await templateAt(root)

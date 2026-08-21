@@ -27,7 +27,7 @@ describe("linkRootRuntimeBin runtime wrapper parity", () => {
     expect(link).not.toBeNull()
     const wrapper = await readFile(link?.path ?? "", "utf8")
     expect(wrapper).toContain("OMO_RUNTIME")
-    expect(wrapper).toContain(`export CODEX_HOME="\${CODEX_HOME:-${fixture.codexHome}}"`)
+    expect(wrapper).toContain(`export CODEX_HOME="\${CODEX_HOME:-${fixture.codexHome.replaceAll("\\", "/")}}"`)
     expect(wrapper).toMatch(/dist[\\/]cli-node[\\/]index\.js/)
     expect(wrapper).toContain("exec node")
     expect(wrapper.indexOf("OMO_RUNTIME")).toBeLessThan(wrapper.indexOf("command -v bun"))
@@ -76,12 +76,42 @@ describe("linkRootRuntimeBin runtime wrapper parity", () => {
     expect(link).not.toBeNull()
     const wrapper = await readFile(link?.path ?? "", "utf8")
     expect(wrapper).toContain('for /f "tokens=1,* delims==" %%A in (\'findstr /R /C:"NODE_REPL_NODE_PATH[ ]*=" "%CODEX_HOME%\\config.toml" 2^>nul\') do (')
-    expect(wrapper).toContain('if "!OMO_NODE_BINARY:~0,1!"=="^"" set "OMO_NODE_BINARY=!OMO_NODE_BINARY:~1!"')
+    expect(wrapper).toContain('if "!OMO_NODE_BINARY:~0,1!"=="""" set "OMO_NODE_BINARY=!OMO_NODE_BINARY:~1!"')
     expect(wrapper).toContain(`if "!OMO_NODE_BINARY:~0,1!"=="'" set "OMO_NODE_BINARY=!OMO_NODE_BINARY:~1!"`)
     expect(wrapper).toContain('if "%OMO_RUNTIME%"=="node" if defined OMO_NODE_BINARY if exist "')
     expect(wrapper.indexOf("NODE_REPL_NODE_PATH")).toBeLessThan(wrapper.indexOf('if "%OMO_RUNTIME%"=="node"'))
     expect(wrapper).toContain('"%OMO_NODE_BINARY%" "')
     expect(wrapper).not.toContain('  node "')
+  })
+
+  const windowsOnly = process.platform === "win32" ? test : test.skip
+  windowsOnly("#given a quoted Node path in Codex config #when omo.cmd runs #then CMD parses the wrapper", async () => {
+    // given
+    const fixture = await createRepoFixture()
+    const link = await linkRootRuntimeBin({ ...fixture, platform: "win32" })
+    if (link === null) throw new Error("expected runtime wrapper link")
+    await mkdir(fixture.codexHome, { recursive: true })
+    await writeFile(join(fixture.codexHome, "config.toml"), 'NODE_REPL_NODE_PATH = "C:\\\\missing node\\\\node.exe"\r\n')
+    await mkdir(fixture.binDir, { recursive: true })
+    const fakeBun = join(fixture.binDir, "bun.cmd")
+    await writeFile(fakeBun, "@echo off\r\necho wrapper-ok\r\nexit /b 0\r\n")
+
+    // when
+    const process = Bun.spawn(["cmd.exe", "/d", "/c", link.path, "get-local-version"], {
+      env: { ...Bun.env, BUN_BINARY: fakeBun },
+      stderr: "pipe",
+      stdout: "pipe",
+    })
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+      process.exited,
+    ])
+
+    // then
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    expect(stdout.trim()).toBe("wrapper-ok")
   })
 
   const posixOnly = process.platform === "win32" ? test.skip : test

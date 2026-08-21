@@ -6,6 +6,8 @@ import { createFixtureBaseline, loadTemplateMetadata, revalidateTemplateMetadata
 import { validateAdaptiveCheckout } from "./template-contract"
 import { createInstalledTemplate } from "./test-template"
 
+const platformTest = process.platform === "linux" ? test : test.skip
+
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
@@ -14,7 +16,7 @@ afterEach(async () => {
   )
 })
 
-test("#given hostile global Git config and hooks #when a fixture baseline is created #then host configuration is isolated", async () => {
+platformTest("#given hostile global Git config and hooks #when a fixture baseline is created #then host configuration is isolated", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-git-"))
   temporaryDirectories.push(root)
   const fixture = join(root, "fixture")
@@ -35,7 +37,7 @@ test("#given hostile global Git config and hooks #when a fixture baseline is cre
   expect(Bun.spawnSync(["git", "branch", "--show-current"], { cwd: fixture }).stdout.toString().trim()).toBe("benchmark")
 })
 
-test("#given a marker-only directory #when template metadata is loaded #then the uninstalled template is rejected", async () => {
+platformTest("#given a marker-only directory #when template metadata is loaded #then the uninstalled template is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-marker-only-"))
   temporaryDirectories.push(root)
   await writeFile(
@@ -46,7 +48,7 @@ test("#given a marker-only directory #when template metadata is loaded #then the
   await expect(loadTemplateMetadata(root, "adaptive")).rejects.toThrow("config.toml")
 })
 
-test("#given tracked adaptive policy is dirty #when trusted HEAD bytes are resolved #then working-tree masquerade is rejected", async () => {
+platformTest("#given tracked adaptive policy is dirty #when trusted HEAD bytes are resolved #then working-tree masquerade is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-head-policy-"))
   temporaryDirectories.push(root)
   const rule = join(root, "packages/omo-codex/plugin/components/rules/bundled-rules/hephaestus/gpt-5.6.md")
@@ -64,7 +66,7 @@ test("#given tracked adaptive policy is dirty #when trusted HEAD bytes are resol
   await expect(validateAdaptiveCheckout(root)).rejects.toThrow("differs from committed HEAD")
 })
 
-test("#given cached and source marketplace layouts #when trusted templates load #then both active plugins are resolved", async () => {
+platformTest("#given cached and source marketplace layouts #when trusted templates load #then both active plugins are resolved", async () => {
   const cacheRoot = await mkdtemp(join(tmpdir(), "adaptive-benchmark-cache-layout-"))
   const sourceRoot = await mkdtemp(join(tmpdir(), "adaptive-benchmark-source-layout-"))
   temporaryDirectories.push(cacheRoot, sourceRoot)
@@ -80,7 +82,7 @@ test("#given cached and source marketplace layouts #when trusted templates load 
   expect(sourceMetadata.installation.plugin_root).toEndWith("plugins/omo")
 })
 
-test("#given adaptive policy is mislabeled upstream #when trusted provenance loads #then same-policy variant spoofing is rejected", async () => {
+platformTest("#given adaptive policy is mislabeled upstream #when trusted provenance loads #then same-policy variant spoofing is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-mislabeled-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")
@@ -92,7 +94,7 @@ test("#given adaptive policy is mislabeled upstream #when trusted provenance loa
   await expect(loadTemplateMetadata(template, "upstream")).rejects.toThrow("trusted upstream contract")
 })
 
-test("#given active cache manifest or policy artifacts are missing #when trusted templates load #then each incomplete install is rejected", async () => {
+platformTest("#given active cache manifest or policy artifacts are missing #when trusted templates load #then each incomplete install is rejected", async () => {
   const manifestRoot = await mkdtemp(join(tmpdir(), "adaptive-benchmark-missing-manifest-"))
   const artifactRoot = await mkdtemp(join(tmpdir(), "adaptive-benchmark-missing-artifact-"))
   temporaryDirectories.push(manifestRoot, artifactRoot)
@@ -105,7 +107,7 @@ test("#given active cache manifest or policy artifacts are missing #when trusted
   await expect(loadTemplateMetadata(missingArtifact, "adaptive")).rejects.toThrow("SKILL.md")
 })
 
-test("#given template target swaps after trusted metadata #when use boundary revalidates #then credential-tree substitution is rejected", async () => {
+platformTest("#given template target swaps after trusted metadata #when use boundary revalidates #then credential-tree substitution is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-template-swap-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")
@@ -119,7 +121,7 @@ test("#given template target swaps after trusted metadata #when use boundary rev
   await expect(revalidateTemplateMetadata(metadata, "adaptive")).rejects.toThrow()
 })
 
-test("#given only a template executable mode changes #when use boundary revalidates #then full snapshot drift is rejected", async () => {
+platformTest("#given only a template executable mode changes #when use boundary revalidates #then full snapshot drift is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-mode-drift-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")
@@ -129,7 +131,7 @@ test("#given only a template executable mode changes #when use boundary revalida
   await expect(revalidateTemplateMetadata(metadata, "adaptive")).rejects.toThrow("Template changed")
 })
 
-test("#given an installed runtime contains any symlink #when template metadata loads #then the non-snapshot template is rejected", async () => {
+platformTest("#given an installed runtime contains any symlink #when template metadata loads #then the non-snapshot template is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-external-link-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")
@@ -140,7 +142,7 @@ test("#given an installed runtime contains any symlink #when template metadata l
   await expect(loadTemplateMetadata(template, "adaptive")).rejects.toThrow("symlink-free snapshot")
 })
 
-test("#given snapshot package metadata refers to an absolute checkout #when template loads #then inert file dependency is rejected", async () => {
+platformTest("#given snapshot package metadata refers to an absolute checkout #when template loads #then inert file dependency is rejected", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-file-dependency-"))
   temporaryDirectories.push(root)
   const template = await createInstalledTemplate(root, "adaptive")

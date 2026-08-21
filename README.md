@@ -36,6 +36,8 @@ The internal Codex plugin name remains `omo`, the marketplace identity remains `
 
 ### Evaluate this fork for Codex first
 
+Run the adaptive policy benchmark on Linux or in WSL. Native Windows can install the Codex plugin, but the benchmark requires POSIX directory-descriptor anchoring and exits with guidance instead of using a weaker Windows evidence path.
+
 The published `lazycodex-ai` package is upstream and does not contain these changes. Check out the immutable fork tag. Then follow the executable [Adaptive policy benchmark](docs/reference/adaptive-policy-evaluation.md) guide to prepare both isolated templates and run the full dry-run matrix before any live evaluation:
 
 ```bash

@@ -5,6 +5,8 @@ import { join } from "node:path"
 import { evaluateCompletionOracles } from "./oracles"
 import type { CorpusCase } from "./core"
 
+const platformTest = process.platform === "linux" ? test : test.skip
+
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
@@ -13,7 +15,7 @@ afterEach(async () => {
   )
 })
 
-test("#given Deep typecheck never exits #when the oracle deadline expires #then typecheck is recorded timed out", async () => {
+platformTest("#given Deep typecheck never exits #when the oracle deadline expires #then typecheck is recorded timed out", async () => {
   const root = await mkdtemp(join(tmpdir(), "adaptive-benchmark-typecheck-timeout-"))
   temporaryDirectories.push(root)
   const cwd = join(root, "workspace")
