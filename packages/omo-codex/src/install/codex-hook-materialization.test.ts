@@ -12,6 +12,12 @@ import { createRepoWithBuiltComponentBins } from "./install-codex-test-fixtures"
 
 const skipAstGrepInstall = async () => ({ kind: "skipped" as const, reason: "test" })
 
+function inspectMaterializedCommand(command: string): string {
+  const encodedPrefix = "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand "
+  if (!command.startsWith(encodedPrefix)) return command
+  return Buffer.from(command.slice(encodedPrefix.length), "base64").toString("utf16le")
+}
+
 describe("Codex user-layer hook materialization", () => {
   test("#given user hooks and plugin hook fragments #when installing and updating OMO #then preserves user hooks and replaces supported managed hooks", async () => {
     // given
@@ -64,9 +70,10 @@ describe("Codex user-layer hook materialization", () => {
       .filter(([event]) => event !== "PostCompact")
       .flatMap(([, groups]) => groups.flatMap((group) => group.hooks.map((hook) => hook.command)))
       .filter((command) => command !== "user-session-hook")
+      .map(inspectMaterializedCommand)
     expect(managedCommands.every((command) => command.includes(second.installed[0]?.path ?? "missing"))).toBe(true)
     expect(managedCommands.every((command) => !command.includes(first.installed[0]?.path ?? "missing"))).toBe(true)
-    expect(managedCommands.every((command) => command.includes("PLUGIN_ROOT=") && command.includes("PLUGIN_DATA="))).toBe(true)
+    expect(managedCommands.every((command) => command.includes("PLUGIN_ROOT") && command.includes("PLUGIN_DATA"))).toBe(true)
     expect(managedCommands.every((command) => !command.includes("${PLUGIN_ROOT}") && !command.includes("${PLUGIN_DATA}"))).toBe(true)
 
     const windowsCommand = materialized.hooks.SessionStart?.[1]?.hooks[0]?.commandWindows

@@ -5,6 +5,8 @@ import { join } from "node:path"
 import { main } from "../adaptive-policy-benchmark"
 import { createInstalledTemplate } from "./test-template"
 
+const platformDescribe = process.platform === "linux" ? describe : describe.skip
+
 const temporaryDirectories: string[] = []
 
 async function setup(variant: "adaptive" | "upstream" = "adaptive"): Promise<{
@@ -51,7 +53,7 @@ afterEach(async () => {
   )
 })
 
-describe("adaptive benchmark behavioral completion oracles", () => {
+platformDescribe("adaptive benchmark behavioral completion oracles", () => {
   test("#given a vacuous Standard test name and claimed model verification #when completion is measured #then broken add remains inconclusive", async () => {
     const fixture = await setup()
     await writeFile(fixture.fakeCodex, `#!/usr/bin/env bun

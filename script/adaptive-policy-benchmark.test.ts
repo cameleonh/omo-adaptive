@@ -2,8 +2,16 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { tmpdir } from "node:os"
+import { assertBenchmarkPlatform } from "./adaptive-policy-benchmark"
 import { validateCase, type CorpusCase, type Variant } from "./adaptive-policy-benchmark/core"
 import { createInstalledTemplate } from "./adaptive-policy-benchmark/test-template"
+
+const platformDescribe = process.platform === "linux" ? describe : describe.skip
+
+test("#given an unsupported host #when benchmark startup is checked #then Linux or WSL guidance is emitted before filesystem work", () => {
+  expect(() => assertBenchmarkPlatform("win32")).toThrow("Linux, including WSL")
+  expect(() => assertBenchmarkPlatform("darwin")).toThrow("Linux, including WSL")
+})
 
 const temporaryDirectories: string[] = []
 
@@ -21,7 +29,7 @@ afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
 })
 
-describe("adaptive policy benchmark", () => {
+platformDescribe("adaptive policy benchmark", () => {
   test("#given the committed corpus #when dry-run uses default repetitions #then it records a five-run matrix without invoking Codex", async () => {
     // given
     const root = await temporaryDirectory("adaptive-benchmark-")

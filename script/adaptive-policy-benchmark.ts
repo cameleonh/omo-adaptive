@@ -51,6 +51,12 @@ class UsageError extends Error {
   readonly name = "UsageError"
 }
 
+export function assertBenchmarkPlatform(platform: NodeJS.Platform = process.platform): void {
+  if (platform !== "linux") {
+    throw new UsageError("Adaptive policy benchmark requires Linux, including WSL, because evidence output is anchored through /proc/self/fd directory descriptors")
+  }
+}
+
 function optionValue(args: readonly string[], name: string): string | null {
   const equals = args.find((argument) => argument.startsWith(`${name}=`))
   if (equals !== undefined) return equals.slice(name.length + 1)
@@ -161,6 +167,7 @@ async function executeRun(input: BenchmarkRun): Promise<void> {
 }
 
 export async function main(args: readonly string[]): Promise<number> {
+  assertBenchmarkPlatform()
   const options = parseOptions(args)
   if (!(await stat(options.template)).isDirectory()) throw new UsageError("Codex-home template must be a directory")
   if (options.template === resolve(homedir(), ".codex")) throw new UsageError("Refusing to use the real ~/.codex as a template")

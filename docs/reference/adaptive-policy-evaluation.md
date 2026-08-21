@@ -1,5 +1,8 @@
 # Adaptive policy benchmark
 
+> [!IMPORTANT]
+> Run this benchmark on Linux or in WSL. Its evidence directory is anchored through POSIX directory descriptors so that path swaps cannot redirect later artifact writes. Native Windows installation of OMO Adaptive is supported, but the benchmark intentionally refuses to weaken this filesystem boundary; on Windows, clone and run the evaluation inside WSL.
+
 This is the executable comparison protocol for OMO Adaptive. It compares the policy variant loaded from a preinstalled isolated Codex template. It preserves the inherited marketplace identity: marketplace `sisyphuslabs`, plugin `omo`, enabled as `omo@sisyphuslabs`.
 
 The benchmark command is:

@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { getActiveCachedLazyCodexVersion } from "@oh-my-opencode/omo-codex/install"
+import { stripAnsi } from "../doctor/framework/format-shared"
 import { getLocalVersion } from "./get-local-version"
 
 async function captureLocalVersionOutput(input: { readonly cachedVersion?: string; readonly codexHome: string; readonly json: boolean }): Promise<{ readonly exitCode: number; readonly output: string }> {
@@ -94,8 +95,9 @@ describe("getLocalVersion", () => {
 
       // then
       expect(result.exitCode).toBe(0)
-      expect(result.output).toContain(`Current Version: ${stamp}`)
-      expect(result.output).toContain("Running a local dev build")
+      const plainOutput = stripAnsi(result.output)
+      expect(plainOutput).toContain(`Current Version: ${stamp}`)
+      expect(plainOutput).toContain("Running a local dev build")
     } finally {
       await rm(codexHome, { recursive: true, force: true })
     }
@@ -133,8 +135,9 @@ describe("getLocalVersion", () => {
 
       // then
       expect(result.exitCode).toBe(0)
-      expect(result.output).toContain("Current Version: opencode-malformed-marketplace")
-      expect(result.output).toContain("Running a local dev build")
+      const plainOutput = stripAnsi(result.output)
+      expect(plainOutput).toContain("Current Version: opencode-malformed-marketplace")
+      expect(plainOutput).toContain("Running a local dev build")
     } finally {
       await rm(codexHome, { recursive: true, force: true })
     }
